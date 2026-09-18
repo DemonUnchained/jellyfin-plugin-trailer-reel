@@ -1,16 +1,16 @@
 {
   "category": "General",
-  "changelog": "Fixes Jellyfin 12.1 playback indexing while preserving required Movie Name-trailer filenames. Trailer Reel now creates space-free relative symlink aliases with non-extra names for its hidden Jellyfin library.",
-  "description": "Maintains a local catalog of recent and upcoming movie trailers and plays same-genre trailers before movies.",
+  "changelog": "Adds a separate 30-file Japanese anime-movie trailer pool. Anime trailers play only for movies in the configured Anime Movies library, while regular movies remain isolated to the regular trailer pool.",
+  "description": "Maintains separate recent and upcoming regular-movie and anime-movie trailer pools and plays same-genre trailers before movies.",
   "guid": "c124b60d-fb89-47bb-9c93-fc2649152a75",
   "name": "Trailer Reel",
-  "overview": "Recent and upcoming same-genre movie trailers as Jellyfin prerolls.",
-  "owner": "DemonUnchained",
+  "overview": "Recent and upcoming same-genre regular and anime movie trailers as Jellyfin prerolls.",
+  "owner": "Rocinante",
   "targetAbi": "12.1.0.0",
-  "timestamp": "2026-09-18T00:00:00Z",
-  "version": "0.2.1.4",
+  "timestamp": "2026-09-18T16:12:24Z",
+  "version": "0.3.0.0",
   "status": "Active",
-  "autoUpdate": true,
+  "autoUpdate": false,
   "assemblies": [
     "Jellyfin.Plugin.TrailerReel.dll"
   ]
