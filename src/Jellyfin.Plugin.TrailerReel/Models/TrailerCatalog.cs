@@ -2,7 +2,7 @@ namespace Jellyfin.Plugin.TrailerReel.Models;
 
 public sealed class TrailerCatalog
 {
-    public int SchemaVersion { get; set; } = 1;
+    public int SchemaVersion { get; set; } = 2;
 
     public DateTimeOffset UpdatedUtc { get; set; }
 
@@ -12,11 +12,15 @@ public sealed class TrailerCatalog
 
     public List<string> LocalGenres { get; set; } = [];
 
+    public List<string> AnimeLocalGenres { get; set; } = [];
+
     public List<TrailerEntry> Trailers { get; set; } = [];
 }
 
 public sealed class TrailerEntry
 {
+    public TrailerPool Pool { get; set; } = TrailerPool.Regular;
+
     public int TmdbMovieId { get; set; }
 
     public string MovieName { get; set; } = string.Empty;
@@ -39,7 +43,18 @@ public sealed record MovieCandidate(
     string Title,
     DateOnly ReleaseDate,
     IReadOnlyList<int> GenreIds,
-    double Popularity);
+    double Popularity)
+{
+    public string OriginalLanguage { get; init; } = string.Empty;
+
+    public IReadOnlyList<string> OriginCountryCodes { get; init; } = [];
+}
+
+public enum TrailerPool
+{
+    Regular,
+    Anime,
+}
 
 public sealed record TrailerVideo(
     string Key,
