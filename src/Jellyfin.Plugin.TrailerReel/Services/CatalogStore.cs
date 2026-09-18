@@ -93,8 +93,10 @@ public sealed class CatalogStore
         WindowStart = source.WindowStart,
         WindowEnd = source.WindowEnd,
         LocalGenres = source.LocalGenres.ToList(),
+        AnimeLocalGenres = source.AnimeLocalGenres.ToList(),
         Trailers = source.Trailers.Select(entry => new TrailerEntry
         {
+            Pool = entry.Pool,
             TmdbMovieId = entry.TmdbMovieId,
             MovieName = entry.MovieName,
             Year = entry.Year,

@@ -16,6 +16,7 @@ public sealed class GenreTrailerIntroProvider : IIntroProvider
 
     private readonly CatalogStore _catalogStore;
     private readonly HiddenTrailerLibrary _hiddenLibrary;
+    private readonly LocalGenreService _localGenreService;
     private readonly IUserDataManager _userDataManager;
     private readonly ILogger<GenreTrailerIntroProvider> _logger;
     private readonly ConcurrentDictionary<(Guid UserId, Guid ItemId), CachedSelection> _selectionCache = new();
@@ -23,11 +24,13 @@ public sealed class GenreTrailerIntroProvider : IIntroProvider
     public GenreTrailerIntroProvider(
         CatalogStore catalogStore,
         HiddenTrailerLibrary hiddenLibrary,
+        LocalGenreService localGenreService,
         IUserDataManager userDataManager,
         ILogger<GenreTrailerIntroProvider> logger)
     {
         _catalogStore = catalogStore;
         _hiddenLibrary = hiddenLibrary;
+        _localGenreService = localGenreService;
         _userDataManager = userDataManager;
         _logger = logger;
     }
@@ -67,10 +70,20 @@ public sealed class GenreTrailerIntroProvider : IIntroProvider
 
         var folder = Path.GetFullPath(config.TrailerFolderPath.Trim());
         var catalog = await _catalogStore.LoadAsync(folder, CancellationToken.None).ConfigureAwait(false);
+        var animeFeature = _localGenreService.IsInLibrary(item, config.AnimeMovieLibraryName);
+        if (animeFeature && !config.EnableAnimeMovieTrailers)
+        {
+            _logger.LogInformation(
+                "Trailer Reel skipped prerolls before anime movie {MovieName} because anime trailers are disabled",
+                item.Name);
+            return [];
+        }
+
+        var poolTrailers = TrailerPoolSelector.Select(catalog.Trailers, animeFeature);
         var featureGenres = item.Genres ?? [];
         var featureTmdbId = item.ProviderIds.TryGetValue("Tmdb", out var id) ? id : null;
 
-        var genreMatches = catalog.Trailers
+        var genreMatches = poolTrailers
             .Where(entry => !string.Equals(entry.TmdbMovieId.ToString(), featureTmdbId, StringComparison.Ordinal))
             .Where(entry => GenreTools.HasOverlap(entry.Genres, featureGenres))
             .ToList();
@@ -143,10 +156,11 @@ public sealed class GenreTrailerIntroProvider : IIntroProvider
         }
 
         _logger.LogInformation(
-            "Trailer Reel queued {Count} same-genre trailer(s) before {MovieName}: {CatalogCount} catalog, {GenreMatchCount} genre-matched, {PresentCount} present, {IndexedCount} indexed, {WatchedCount} already watched by this user",
+            "Trailer Reel queued {Count} same-genre {Pool} trailer(s) before {MovieName}: {CatalogCount} in pool, {GenreMatchCount} genre-matched, {PresentCount} present, {IndexedCount} indexed, {WatchedCount} already watched by this user",
             intros.Count,
+            animeFeature ? "anime" : "regular",
             item.Name,
-            catalog.Trailers.Count,
+            poolTrailers.Count,
             genreMatches.Count,
             candidates.Count,
             available.Count,

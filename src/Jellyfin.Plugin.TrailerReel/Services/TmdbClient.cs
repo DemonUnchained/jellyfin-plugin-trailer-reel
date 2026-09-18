@@ -54,6 +54,39 @@ public sealed class TmdbClient
             ["release_date.gte"] = start.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             ["release_date.lte"] = end.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
         };
+        return await DiscoverMoviesAsync(parameters, config, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<MovieCandidate>> DiscoverAnimeMoviesAsync(
+        DateOnly start,
+        DateOnly end,
+        int page,
+        PluginConfiguration config,
+        CancellationToken cancellationToken)
+    {
+        var parameters = new Dictionary<string, string>
+        {
+            ["language"] = config.Language,
+            ["region"] = config.Region,
+            ["sort_by"] = "popularity.desc",
+            ["include_adult"] = "false",
+            ["include_video"] = "true",
+            ["page"] = page.ToString(CultureInfo.InvariantCulture),
+            ["with_genres"] = AnimeMovieRules.AnimationGenreId.ToString(CultureInfo.InvariantCulture),
+            ["with_original_language"] = "ja",
+            ["with_origin_country"] = "JP",
+            ["with_release_type"] = "2|3|4",
+            ["release_date.gte"] = start.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            ["release_date.lte"] = end.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+        };
+        return await DiscoverMoviesAsync(parameters, config, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<IReadOnlyList<MovieCandidate>> DiscoverMoviesAsync(
+        IReadOnlyDictionary<string, string> parameters,
+        PluginConfiguration config,
+        CancellationToken cancellationToken)
+    {
         var path = "discover/movie?" + string.Join(
             "&",
             parameters.Select(pair => $"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(pair.Value)}"));
@@ -74,7 +107,11 @@ public sealed class TmdbClient
                 continue;
             }
 
-            results.Add(new MovieCandidate(movie.Id, movie.Title, releaseDate, movie.GenreIds, movie.Popularity));
+            results.Add(new MovieCandidate(movie.Id, movie.Title, releaseDate, movie.GenreIds, movie.Popularity)
+            {
+                OriginalLanguage = movie.OriginalLanguage,
+                OriginCountryCodes = movie.OriginCountryCodes,
+            });
         }
 
         return results;
@@ -173,6 +210,12 @@ public sealed class TmdbClient
 
         [JsonPropertyName("popularity")]
         public double Popularity { get; set; }
+
+        [JsonPropertyName("original_language")]
+        public string OriginalLanguage { get; set; } = string.Empty;
+
+        [JsonPropertyName("origin_country")]
+        public List<string> OriginCountryCodes { get; set; } = [];
     }
 
     private sealed class VideoListResponse

@@ -6,6 +6,10 @@ namespace Jellyfin.Plugin.TrailerReel.Services;
 
 public sealed class TrailerCatalogRefreshService
 {
+    private const int DiscoveryCandidateMultiplier = 5;
+    private const int TmdbPageSize = 20;
+    private const int MaximumAnimeDiscoveryPages = 10;
+
     private readonly LocalGenreService _localGenreService;
     private readonly TmdbClient _tmdbClient;
     private readonly YtDlpDownloader _downloader;
@@ -42,31 +46,42 @@ public sealed class TrailerCatalogRefreshService
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var start = today.AddMonths(-config.MonthsBack);
         var end = today.AddMonths(config.MonthsAhead);
-        var localMovies = _localGenreService.GetCurrentMovieInventory(folder);
-        var localGenres = localMovies.Genres;
-        if (localGenres.Count == 0)
+        var movieContext = _localGenreService.GetCurrentMovieContext(folder, config.AnimeMovieLibraryName);
+        var localMovies = movieContext.AllMovies;
+        var regularGenres = movieContext.RegularGenres;
+        var animePoolActive = config.EnableAnimeMovieTrailers && movieContext.AnimeLibraryFound;
+        if (regularGenres.Count == 0 && !animePoolActive)
         {
             throw new InvalidOperationException("No genres were found on movies in the current Jellyfin library.");
         }
 
+        if (config.EnableAnimeMovieTrailers && !movieContext.AnimeLibraryFound)
+        {
+            _logger.LogWarning(
+                "Trailer Reel did not find a Jellyfin library named {LibraryName}; the anime trailer pool will not download until the configured library exists",
+                config.AnimeMovieLibraryName);
+        }
+
         _logger.LogInformation(
-            "Trailer Reel will exclude locally hosted movies using {TmdbIdCount} TMDb IDs and {FallbackCount} title/year fallbacks",
+            "Trailer Reel will exclude locally hosted movies using {TmdbIdCount} TMDb IDs and {FallbackCount} title/year fallbacks; anime library {AnimeLibraryName} found: {AnimeLibraryFound}",
             localMovies.TmdbIdCount,
-            localMovies.FallbackTitleYearCount);
+            localMovies.FallbackTitleYearCount,
+            config.AnimeMovieLibraryName,
+            movieContext.AnimeLibraryFound);
 
         progress.Report(3);
         var tmdbGenres = await _tmdbClient.GetMovieGenresAsync(config, cancellationToken).ConfigureAwait(false);
-        var localSet = GenreTools.CanonicalSet(localGenres);
-        var mappedGenres = tmdbGenres
-            .Where(pair => localSet.Contains(GenreTools.Canonicalize(pair.Value)))
+        var regularGenreSet = GenreTools.CanonicalSet(regularGenres);
+        var mappedRegularGenres = tmdbGenres
+            .Where(pair => regularGenreSet.Contains(GenreTools.Canonicalize(pair.Value)))
             .ToDictionary(pair => pair.Key, pair => GenreTools.Canonicalize(pair.Value));
-        if (mappedGenres.Count == 0)
+        if (regularGenres.Count > 0 && mappedRegularGenres.Count == 0 && !animePoolActive)
         {
-            throw new InvalidOperationException("None of the local Jellyfin genres could be mapped to TMDb movie genres.");
+            throw new InvalidOperationException("None of the regular-movie Jellyfin genres could be mapped to TMDb movie genres.");
         }
 
-        var mappedNames = mappedGenres.Values.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var unmapped = localSet.Where(genre => !mappedNames.Contains(genre)).OrderBy(genre => genre).ToArray();
+        var mappedNames = mappedRegularGenres.Values.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var unmapped = regularGenreSet.Where(genre => !mappedNames.Contains(genre)).OrderBy(genre => genre).ToArray();
         if (unmapped.Length > 0)
         {
             _logger.LogWarning(
@@ -74,126 +89,143 @@ public sealed class TrailerCatalogRefreshService
                 string.Join(", ", unmapped));
         }
 
-        var catalog = await _catalogStore.LoadAsync(folder, cancellationToken).ConfigureAwait(false);
-        var retained = catalog.Trailers
+        var previousCatalog = await _catalogStore.LoadAsync(folder, cancellationToken).ConfigureAwait(false);
+        var retainedRegular = previousCatalog.Trailers
+            .Where(entry => entry.Pool == TrailerPool.Regular)
             .Where(entry => !localMovies.Contains(entry.TmdbMovieId, entry.MovieName, entry.Year))
             .Where(entry => entry.ReleaseDate >= start && entry.ReleaseDate <= end)
-            .Where(entry => GenreTools.HasOverlap(entry.Genres, localGenres))
+            .Where(entry => GenreTools.HasOverlap(entry.Genres, regularGenres))
             .Where(entry => IsSafeManagedFile(folder, entry.FileName) && File.Exists(Path.Combine(folder, entry.FileName)))
             .Take(config.MaxTrailers)
             .ToList();
+        var retainedAnime = config.EnableAnimeMovieTrailers
+            ? previousCatalog.Trailers
+                .Where(entry => entry.Pool == TrailerPool.Anime)
+                .Where(entry => !localMovies.Contains(entry.TmdbMovieId, entry.MovieName, entry.Year))
+                .Where(entry => entry.ReleaseDate >= start && entry.ReleaseDate <= end)
+                .Where(entry => IsSafeManagedFile(folder, entry.FileName) && File.Exists(Path.Combine(folder, entry.FileName)))
+                .Take(config.MaxAnimeTrailers)
+                .ToList()
+            : [];
+        var retained = retainedRegular.Concat(retainedAnime).ToList();
 
         if (config.DeleteExpiredManagedTrailers)
         {
-            DeleteNoLongerRetained(folder, catalog.Trailers, retained);
+            DeleteNoLongerRetained(folder, previousCatalog.Trailers, retained);
         }
 
-        catalog = new TrailerCatalog
+        var catalog = new TrailerCatalog
         {
             UpdatedUtc = DateTimeOffset.UtcNow,
             WindowStart = start,
             WindowEnd = end,
-            LocalGenres = localGenres.ToList(),
+            LocalGenres = regularGenres.ToList(),
+            AnimeLocalGenres = movieContext.AnimeGenres.ToList(),
             Trailers = retained,
         };
         await _catalogStore.SaveAsync(folder, catalog, cancellationToken).ConfigureAwait(false);
         progress.Report(7);
 
-        var candidatesByGenre = new Dictionary<int, IReadOnlyList<MovieCandidate>>();
-        var genreNumber = 0;
-        foreach (var genre in mappedGenres)
+        if (mappedRegularGenres.Count > 0)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            candidatesByGenre[genre.Key] = await _tmdbClient.DiscoverMoviesAsync(
-                genre.Key,
-                start,
-                end,
-                page: 1,
+            var candidatesByGenre = new Dictionary<int, IReadOnlyList<MovieCandidate>>();
+            var genreNumber = 0;
+            foreach (var genre in mappedRegularGenres)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                candidatesByGenre[genre.Key] = await _tmdbClient.DiscoverMoviesAsync(
+                    genre.Key,
+                    start,
+                    end,
+                    page: 1,
+                    config,
+                    cancellationToken).ConfigureAwait(false);
+                genreNumber++;
+                progress.Report(7 + (13d * genreNumber / mappedRegularGenres.Count));
+            }
+
+            var existingIds = catalog.Trailers.Select(entry => entry.TmdbMovieId).ToHashSet();
+            var candidateLimit = Math.Max(config.MaxTrailers * DiscoveryCandidateMultiplier, config.MaxTrailers);
+            var regularCandidates = CandidateSelector.RoundRobin(candidatesByGenre, candidateLimit)
+                .Where(candidate => !AnimeMovieRules.IsAnimeCandidate(candidate))
+                .Where(candidate => !existingIds.Contains(candidate.Id))
+                .Where(candidate => !localMovies.Contains(candidate.Id, candidate.Title, candidate.ReleaseDate.Year))
+                .ToList();
+            await AddTrailersAsync(
+                catalog,
+                regularCandidates,
+                TrailerPool.Regular,
+                config.MaxTrailers,
+                folder,
+                tmdbGenres,
                 config,
+                progress,
+                progressStart: 20,
+                progressEnd: 72,
                 cancellationToken).ConfigureAwait(false);
-            genreNumber++;
-            progress.Report(7 + (13d * genreNumber / mappedGenres.Count));
         }
 
-        var existingIds = catalog.Trailers.Select(entry => entry.TmdbMovieId).ToHashSet();
-        var candidateLimit = Math.Max(config.MaxTrailers * 5, config.MaxTrailers);
-        var candidates = CandidateSelector.RoundRobin(candidatesByGenre, candidateLimit)
-            .Where(candidate => !existingIds.Contains(candidate.Id))
-            .Where(candidate => !localMovies.Contains(candidate.Id, candidate.Title, candidate.ReleaseDate.Year))
-            .ToList();
-        var attempted = 0;
-
-        foreach (var candidate in candidates)
+        if (animePoolActive)
         {
-            if (catalog.Trailers.Count >= config.MaxTrailers)
+            var animeCandidateLimit = Math.Max(
+                config.MaxAnimeTrailers * DiscoveryCandidateMultiplier,
+                config.MaxAnimeTrailers);
+            var pageCount = Math.Min(
+                MaximumAnimeDiscoveryPages,
+                Math.Max(1, (int)Math.Ceiling(animeCandidateLimit / (double)TmdbPageSize)));
+            var discoveredAnime = new List<MovieCandidate>();
+            for (var page = 1; page <= pageCount && discoveredAnime.Count < animeCandidateLimit; page++)
             {
-                break;
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
-            attempted++;
-            try
-            {
-                var trailer = await _tmdbClient.GetBestTrailerAsync(candidate.Id, config, cancellationToken)
-                    .ConfigureAwait(false);
-                if (trailer is null)
-                {
-                    continue;
-                }
-
-                var names = candidate.GenreIds
-                    .Where(mappedGenres.ContainsKey)
-                    .Select(id => mappedGenres[id])
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-                if (names.Count == 0)
-                {
-                    continue;
-                }
-
-                var fileName = await _downloader.DownloadAsync(
-                    candidate.Id,
-                    candidate.Title,
-                    candidate.ReleaseDate.Year,
-                    trailer.Key,
-                    folder,
+                cancellationToken.ThrowIfCancellationRequested();
+                var pageCandidates = await _tmdbClient.DiscoverAnimeMoviesAsync(
+                    start,
+                    end,
+                    page,
                     config,
-                    catalog.Trailers.Select(entry => entry.FileName).ToArray(),
                     cancellationToken).ConfigureAwait(false);
-                catalog.Trailers.Add(new TrailerEntry
+                discoveredAnime.AddRange(pageCandidates);
+                progress.Report(72 + (8d * page / pageCount));
+                if (pageCandidates.Count < TmdbPageSize)
                 {
-                    TmdbMovieId = candidate.Id,
-                    MovieName = candidate.Title,
-                    Year = candidate.ReleaseDate.Year,
-                    ReleaseDate = candidate.ReleaseDate,
-                    Genres = names,
-                    YoutubeKey = trailer.Key,
-                    FileName = fileName,
-                    DownloadedUtc = DateTimeOffset.UtcNow,
-                });
-                catalog.UpdatedUtc = DateTimeOffset.UtcNow;
-                await _catalogStore.SaveAsync(folder, catalog, cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogWarning(
-                    ex,
-                    "Trailer Reel could not acquire a 1080p trailer for {MovieName} (TMDb {TmdbId})",
-                    candidate.Title,
-                    candidate.Id);
+                    break;
+                }
             }
 
-            progress.Report(20 + (70d * attempted / Math.Max(1, candidates.Count)));
+            var existingIds = catalog.Trailers.Select(entry => entry.TmdbMovieId).ToHashSet();
+            var animeCandidates = discoveredAnime
+                .Where(AnimeMovieRules.IsAnimeCandidate)
+                .GroupBy(candidate => candidate.Id)
+                .Select(group => group.OrderByDescending(candidate => candidate.Popularity).First())
+                .Where(candidate => !existingIds.Contains(candidate.Id))
+                .Where(candidate => !localMovies.Contains(candidate.Id, candidate.Title, candidate.ReleaseDate.Year))
+                .OrderByDescending(candidate => candidate.Popularity)
+                .Take(animeCandidateLimit)
+                .ToList();
+            await AddTrailersAsync(
+                catalog,
+                animeCandidates,
+                TrailerPool.Anime,
+                config.MaxAnimeTrailers,
+                folder,
+                tmdbGenres,
+                config,
+                progress,
+                progressStart: 80,
+                progressEnd: 96,
+                cancellationToken).ConfigureAwait(false);
         }
 
         await _hiddenLibrary.RefreshAsync(folder, catalog.Trailers, cancellationToken).ConfigureAwait(false);
         var indexedCount = catalog.Trailers.Count(entry =>
             _hiddenLibrary.FindItem(folder, entry.FileName) is not null);
         progress.Report(100);
+        var regularCount = catalog.Trailers.Count(entry => entry.Pool == TrailerPool.Regular);
+        var animeCount = catalog.Trailers.Count(entry => entry.Pool == TrailerPool.Anime);
         _logger.LogInformation(
-            "Trailer Reel refresh complete with {Count} trailers for {GenreCount} local genres; Jellyfin indexed {IndexedCount}",
-            catalog.Trailers.Count,
-            localGenres.Count,
+            "Trailer Reel refresh complete with {RegularCount} regular trailers and {AnimeCount} anime trailers for {GenreCount} regular local genres; Jellyfin indexed {IndexedCount}",
+            regularCount,
+            animeCount,
+            regularGenres.Count,
             indexedCount);
     }
 
@@ -216,7 +248,17 @@ public sealed class TrailerCatalogRefreshService
 
         if (config.MaxTrailers is < 1 or > 100)
         {
-            throw new InvalidOperationException("Maximum trailers must be between 1 and 100.");
+            throw new InvalidOperationException("Maximum regular-movie trailers must be between 1 and 100.");
+        }
+
+        if (config.EnableAnimeMovieTrailers && string.IsNullOrWhiteSpace(config.AnimeMovieLibraryName))
+        {
+            throw new InvalidOperationException("An anime movie library name is required when anime trailers are enabled.");
+        }
+
+        if (config.EnableAnimeMovieTrailers && (config.MaxAnimeTrailers is < 1 or > 30))
+        {
+            throw new InvalidOperationException("Maximum anime-movie trailers must be between 1 and 30.");
         }
 
         if (config.TrailersBeforeMovie is < 1 or > 10)
@@ -227,6 +269,88 @@ public sealed class TrailerCatalogRefreshService
         if (config.MonthsBack is < 0 or > 24 || config.MonthsAhead is < 0 or > 24)
         {
             throw new InvalidOperationException("The date-window month values must be between 0 and 24.");
+        }
+    }
+
+    private async Task AddTrailersAsync(
+        TrailerCatalog catalog,
+        IReadOnlyList<MovieCandidate> candidates,
+        TrailerPool pool,
+        int maximum,
+        string folder,
+        IReadOnlyDictionary<int, string> tmdbGenres,
+        PluginConfiguration config,
+        IProgress<double> progress,
+        double progressStart,
+        double progressEnd,
+        CancellationToken cancellationToken)
+    {
+        var attempted = 0;
+        foreach (var candidate in candidates)
+        {
+            if (catalog.Trailers.Count(entry => entry.Pool == pool) >= maximum)
+            {
+                break;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            attempted++;
+            try
+            {
+                var trailer = await _tmdbClient.GetBestTrailerAsync(candidate.Id, config, cancellationToken)
+                    .ConfigureAwait(false);
+                if (trailer is null)
+                {
+                    continue;
+                }
+
+                var names = candidate.GenreIds
+                    .Where(tmdbGenres.ContainsKey)
+                    .Select(id => GenreTools.Canonicalize(tmdbGenres[id]))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                if (names.Count == 0)
+                {
+                    continue;
+                }
+
+                var fileName = await _downloader.DownloadAsync(
+                    candidate.Id,
+                    candidate.Title,
+                    candidate.ReleaseDate.Year,
+                    trailer.Key,
+                    folder,
+                    config,
+                    catalog.Trailers.Select(entry => entry.FileName).ToArray(),
+                    cancellationToken).ConfigureAwait(false);
+                catalog.Trailers.Add(new TrailerEntry
+                {
+                    Pool = pool,
+                    TmdbMovieId = candidate.Id,
+                    MovieName = candidate.Title,
+                    Year = candidate.ReleaseDate.Year,
+                    ReleaseDate = candidate.ReleaseDate,
+                    Genres = names,
+                    YoutubeKey = trailer.Key,
+                    FileName = fileName,
+                    DownloadedUtc = DateTimeOffset.UtcNow,
+                });
+                catalog.UpdatedUtc = DateTimeOffset.UtcNow;
+                await _catalogStore.SaveAsync(folder, catalog, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Trailer Reel could not acquire a trailer for {Pool} candidate {MovieName} (TMDb {TmdbId})",
+                    pool,
+                    candidate.Title,
+                    candidate.Id);
+            }
+            finally
+            {
+                progress.Report(progressStart + ((progressEnd - progressStart) * attempted / Math.Max(1, candidates.Count)));
+            }
         }
     }
 
