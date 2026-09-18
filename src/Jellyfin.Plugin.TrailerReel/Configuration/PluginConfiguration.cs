@@ -16,6 +16,12 @@ public sealed class PluginConfiguration : BasePluginConfiguration
 
     public int MaxTrailers { get; set; } = 100;
 
+    public bool EnableAnimeMovieTrailers { get; set; } = true;
+
+    public string AnimeMovieLibraryName { get; set; } = "Anime Movies";
+
+    public int MaxAnimeTrailers { get; set; } = 30;
+
     public int MonthsBack { get; set; } = 2;
 
     public int MonthsAhead { get; set; } = 6;

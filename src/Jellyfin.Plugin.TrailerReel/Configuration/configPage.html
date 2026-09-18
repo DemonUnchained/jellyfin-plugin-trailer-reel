@@ -9,7 +9,7 @@
         <div data-role="content">
             <div class="content-primary">
                 <h1>Trailer Reel</h1>
-                <p>Maintain up to 100 local 1080p trailers for recent and upcoming U.S. movies, then play same-genre trailers before each movie.</p>
+                <p>Maintain separate local 1080p trailer pools for regular and anime movies, then play only the matching pool before each movie.</p>
 
                 <form id="TrailerReelConfigForm">
                     <div class="checkboxContainer checkboxContainer-withDescription">
@@ -34,7 +34,7 @@
                         <input id="MonthsAhead" type="number" min="0" max="24" is="emby-input">
                     </div>
                     <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="MaxTrailers">Maximum trailer files</label>
+                        <label class="inputLabel inputLabelUnfocused" for="MaxTrailers">Maximum regular-movie trailer files</label>
                         <input id="MaxTrailers" type="number" min="1" max="100" is="emby-input">
                     </div>
                     <div class="checkboxContainer checkboxContainer-withDescription">
@@ -42,6 +42,25 @@
                             <input id="OfficialTrailersOnly" type="checkbox" is="emby-checkbox">
                             <span>Use only trailers TMDb marks official</span>
                         </label>
+                    </div>
+
+                    <h2>Anime movies</h2>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="EnableAnimeMovieTrailers" type="checkbox" is="emby-checkbox">
+                            <span>Enable the separate anime-movie trailer pool</span>
+                        </label>
+                        <div class="fieldDescription">Japanese animated movie trailers are isolated from the regular pool and are returned only for movies inside the configured Jellyfin library.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="AnimeMovieLibraryName">Anime movie library name</label>
+                        <input id="AnimeMovieLibraryName" type="text" is="emby-input" placeholder="Anime Movies">
+                        <div class="fieldDescription">Enter the exact Jellyfin library name. Rocinante uses Anime Movies.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="MaxAnimeTrailers">Maximum anime-movie trailer files</label>
+                        <input id="MaxAnimeTrailers" type="number" min="1" max="30" is="emby-input">
+                        <div class="fieldDescription">The anime pool is capped at 30 files and uses the same U.S. date window and 1080p requirements.</div>
                     </div>
 
                     <h2>Storage and downloader</h2>
@@ -109,14 +128,15 @@
                 const pluginId = 'c124b60d-fb89-47bb-9c93-fc2649152a75';
                 const checkboxIds = [
                     'Enabled',
+                    'EnableAnimeMovieTrailers',
                     'OfficialTrailersOnly',
                     'RequireExact1080p',
                     'DeleteExpiredManagedTrailers',
                     'SkipWhenResuming',
                     'AvoidRepeatTrailersPerUser'
                 ];
-                const textIds = ['TmdbReadAccessToken', 'TrailerFolderPath', 'YtDlpPath', 'YtDlpConfigPath'];
-                const integerIds = ['MonthsBack', 'MonthsAhead', 'MaxTrailers', 'TrailersBeforeMovie'];
+                const textIds = ['TmdbReadAccessToken', 'AnimeMovieLibraryName', 'TrailerFolderPath', 'YtDlpPath', 'YtDlpConfigPath'];
+                const integerIds = ['MonthsBack', 'MonthsAhead', 'MaxTrailers', 'MaxAnimeTrailers', 'TrailersBeforeMovie'];
 
                 page.addEventListener('pageshow', function () {
                     Dashboard.showLoadingMsg();
