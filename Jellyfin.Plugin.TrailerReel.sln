@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jellyfin.Plugin.TrailerReel", "src/Jellyfin.Plugin.TrailerReel/Jellyfin.Plugin.TrailerReel.csproj", "{2F27F413-5D89-43BC-B25E-50B577C54265}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jellyfin.Plugin.TrailerReel.Tests", "tests/Jellyfin.Plugin.TrailerReel.Tests/Jellyfin.Plugin.TrailerReel.Tests.csproj", "{37797143-6870-4B09-AC7D-1DA8B4B9F165}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2F27F413-5D89-43BC-B25E-50B577C54265}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2F27F413-5D89-43BC-B25E-50B577C54265}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2F27F413-5D89-43BC-B25E-50B577C54265}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2F27F413-5D89-43BC-B25E-50B577C54265}.Release|Any CPU.Build.0 = Release|Any CPU
+		{37797143-6870-4B09-AC7D-1DA8B4B9F165}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{37797143-6870-4B09-AC7D-1DA8B4B9F165}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{37797143-6870-4B09-AC7D-1DA8B4B9F165}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{37797143-6870-4B09-AC7D-1DA8B4B9F165}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

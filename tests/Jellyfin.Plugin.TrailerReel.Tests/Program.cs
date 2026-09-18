@@ -1,0 +1,149 @@
+using Emby.Naming.Common;
+using Emby.Naming.Video;
+using Jellyfin.Plugin.TrailerReel.Models;
+using Jellyfin.Plugin.TrailerReel.Services;
+using MediaBrowser.Model.Entities;
+
+var failures = new List<string>();
+
+Check(
+    "genre aliases overlap",
+    GenreTools.HasOverlap(["Sci-Fi", "Drama"], ["Science Fiction"]));
+Check(
+    "different genres do not overlap",
+    !GenreTools.HasOverlap(["Comedy"], ["Horror"]));
+Check(
+    "anime maps to TMDb animation",
+    GenreTools.HasOverlap(["Anime"], ["Animation"]));
+
+var localMovies = new LocalMovieInventory(
+    ["Action", "Sci-Fi"],
+    [1234],
+    [("Amélie: The Movie", 2001)]);
+Check(
+    "local movie inventory matches TMDb id",
+    localMovies.Contains(1234, "Different title", 2026));
+Check(
+    "local movie inventory falls back to normalized title and year",
+    localMovies.Contains(9999, "AMELIE - THE MOVIE", 2001));
+Check(
+    "local movie inventory does not conflate remakes",
+    !localMovies.Contains(9999, "Amelie The Movie", 2026));
+Check(
+    "local movie inventory leaves unrelated candidates eligible",
+    !localMovies.Contains(5678, "Another Movie", 2001));
+
+var indexTestFolder = Path.Combine(Path.GetTempPath(), $"trailer-reel-index-{Guid.NewGuid():N}");
+try
+{
+    Directory.CreateDirectory(indexTestFolder);
+    const string sourceFileName = "Movie Name-trailer.mp4";
+    File.WriteAllText(Path.Combine(indexTestFolder, sourceFileName), "test");
+    var indexEntry = new TrailerEntry { FileName = sourceFileName };
+    var indexCount = TrailerIndexStore.Synchronize(indexTestFolder, [indexEntry]);
+    var playbackPath = TrailerIndexStore.GetPlaybackPath(indexTestFolder, sourceFileName);
+    Check("trailer index creates one alias", indexCount == 1 && File.Exists(playbackPath));
+    Check(
+        "trailer index alias avoids Jellyfin trailer-extra suffix",
+        !Path.GetFileNameWithoutExtension(playbackPath).EndsWith("-trailer", StringComparison.OrdinalIgnoreCase));
+    Check(
+        "trailer index alias points relatively to the original",
+        string.Equals(
+            new FileInfo(playbackPath).LinkTarget,
+            Path.Combine("..", sourceFileName),
+            StringComparison.Ordinal));
+
+    var namingOptions = new NamingOptions();
+    var sourceNaming = VideoResolver.Resolve(sourceFileName, isDirectory: false, namingOptions);
+    var aliasNaming = VideoResolver.Resolve(Path.GetFileName(playbackPath), isDirectory: false, namingOptions);
+    Check(
+        "Jellyfin 12.1 classifies required source name as trailer extra",
+        sourceNaming?.ExtraType == ExtraType.Trailer);
+    Check(
+        "Jellyfin 12.1 classifies index alias as standalone video",
+        aliasNaming?.ExtraType is null);
+
+    TrailerIndexStore.Synchronize(indexTestFolder, []);
+    Check("trailer index removes stale managed alias", !File.Exists(playbackPath));
+}
+finally
+{
+    if (Directory.Exists(indexTestFolder))
+    {
+        Directory.Delete(indexTestFolder, recursive: true);
+    }
+}
+
+var action = new MovieCandidate(1, "Action One", new DateOnly(2026, 9, 1), [28], 100);
+var drama = new MovieCandidate(2, "Drama One", new DateOnly(2026, 9, 2), [18], 90);
+var duplicate = new MovieCandidate(1, "Action One", new DateOnly(2026, 9, 1), [28, 18], 100);
+var selected = CandidateSelector.RoundRobin(
+    new Dictionary<int, IReadOnlyList<MovieCandidate>>
+    {
+        [28] = [action],
+        [18] = [duplicate, drama],
+    },
+    3);
+Check("round robin de-duplicates movies", selected.Select(movie => movie.Id).SequenceEqual([drama.Id, action.Id])
+    || selected.Select(movie => movie.Id).SequenceEqual([action.Id, drama.Id]));
+
+Check(
+    "preferred trailer filename",
+    YtDlpDownloader.ChooseFileName("Movie: Name", 2026, 10, ".mp4", "/tmp", []) == "Movie Name-trailer.mp4");
+Check(
+    "year disambiguates duplicate title",
+    YtDlpDownloader.ChooseFileName("Movie", 2026, 10, ".mp4", "/tmp", ["Movie-trailer.mp4"])
+        == "Movie (2026)-trailer.mp4");
+Check(
+    "TMDb id disambiguates duplicate title and year",
+    YtDlpDownloader.ChooseFileName(
+        "Movie",
+        2026,
+        10,
+        ".mp4",
+        "/tmp",
+        ["Movie-trailer.mp4", "Movie (2026)-trailer.mp4"])
+        == "Movie [tmdb-10]-trailer.mp4");
+
+var queueCandidates = new[]
+{
+    new QueueCandidate("watched", true),
+    new QueueCandidate("new-1", false),
+    new QueueCandidate("new-2", false),
+    new QueueCandidate("new-3", false),
+};
+var unseenQueue = TrailerQueueSelector.Select(
+    queueCandidates,
+    candidate => candidate.Watched,
+    2,
+    avoidRepeats: true);
+Check(
+    "per-user queue excludes watched trailers",
+    unseenQueue.Select(candidate => candidate.Name).SequenceEqual(["new-1", "new-2"]));
+var repeatableQueue = TrailerQueueSelector.Select(
+    queueCandidates,
+    candidate => candidate.Watched,
+    2,
+    avoidRepeats: false);
+Check(
+    "repeat filtering can be disabled",
+    repeatableQueue.Select(candidate => candidate.Name).SequenceEqual(["watched", "new-1"]));
+
+if (failures.Count > 0)
+{
+    Console.Error.WriteLine(string.Join(Environment.NewLine, failures));
+    return 1;
+}
+
+Console.WriteLine("All Trailer Reel tests passed.");
+return 0;
+
+void Check(string name, bool condition)
+{
+    if (!condition)
+    {
+        failures.Add("FAILED: " + name);
+    }
+}
+
+file sealed record QueueCandidate(string Name, bool Watched);

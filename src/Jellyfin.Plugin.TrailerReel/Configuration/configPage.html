@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Trailer Reel</title>
+</head>
+<body>
+    <div id="TrailerReelConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <h1>Trailer Reel</h1>
+                <p>Maintain up to 100 local 1080p trailers for recent and upcoming U.S. movies, then play same-genre trailers before each movie.</p>
+
+                <form id="TrailerReelConfigForm">
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="Enabled" type="checkbox" is="emby-checkbox">
+                            <span>Enable Trailer Reel playback and refreshes</span>
+                        </label>
+                    </div>
+
+                    <h2>Discovery</h2>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="TmdbReadAccessToken">TMDb API read access token</label>
+                        <input id="TmdbReadAccessToken" type="password" is="emby-input" autocomplete="new-password">
+                        <div class="fieldDescription">A free TMDb v4 read access token. It is sent only to api.themoviedb.org.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="MonthsBack">Months before today</label>
+                        <input id="MonthsBack" type="number" min="0" max="24" is="emby-input">
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="MonthsAhead">Months after today</label>
+                        <input id="MonthsAhead" type="number" min="0" max="24" is="emby-input">
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="MaxTrailers">Maximum trailer files</label>
+                        <input id="MaxTrailers" type="number" min="1" max="100" is="emby-input">
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="OfficialTrailersOnly" type="checkbox" is="emby-checkbox">
+                            <span>Use only trailers TMDb marks official</span>
+                        </label>
+                    </div>
+
+                    <h2>Storage and downloader</h2>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="TrailerFolderPath">Trailer folder inside the Jellyfin container</label>
+                        <input id="TrailerFolderPath" type="text" is="emby-input" placeholder="/trailers">
+                        <div class="fieldDescription">For Rocinante, use /trailers backed by the Applications pool. The container path must be writable.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="YtDlpPath">yt-dlp executable path inside the container</label>
+                        <input id="YtDlpPath" type="text" is="emby-input" placeholder="/config/trailer-tools/yt-dlp">
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="YtDlpConfigPath">Optional yt-dlp config path</label>
+                        <input id="YtDlpConfigPath" type="text" is="emby-input" placeholder="/config/trailer-tools/yt-dlp.conf">
+                        <div class="fieldDescription">Optional. Use this for cookies, a PO-token provider, proxy settings, or other site-specific yt-dlp options.</div>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="RequireExact1080p" type="checkbox" is="emby-checkbox">
+                            <span>Require an exact 1080p format</span>
+                        </label>
+                        <div class="fieldDescription">When enabled, a movie is skipped if yt-dlp cannot obtain a 1080p trailer.</div>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="DeleteExpiredManagedTrailers" type="checkbox" is="emby-checkbox">
+                            <span>Delete managed trailers when they are no longer eligible</span>
+                        </label>
+                        <div class="fieldDescription">Removes catalog-managed files that leave the date/genre window or whose movie is now hosted locally. Unmanaged files are never deleted.</div>
+                    </div>
+
+                    <h2>Playback</h2>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="TrailersBeforeMovie">Same-genre trailers before each movie</label>
+                        <input id="TrailersBeforeMovie" type="number" min="1" max="10" is="emby-input">
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="SkipWhenResuming" type="checkbox" is="emby-checkbox">
+                            <span>Skip trailers when resuming a partially watched movie</span>
+                        </label>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="AvoidRepeatTrailersPerUser" type="checkbox" is="emby-checkbox">
+                            <span>Do not repeat trailers for the same Jellyfin user</span>
+                        </label>
+                        <div class="fieldDescription">A trailer is marked watched for the requesting user when it is committed to that user's preroll queue. It remains available to other users.</div>
+                    </div>
+
+                    <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                        <span>Save</span>
+                    </button>
+                </form>
+
+                <p style="margin-top:2em">After saving, run <strong>Dashboard → Scheduled Tasks → Download/refresh Trailer Reel</strong>. The daily task then runs at 4:00 AM server time.</p>
+                <p class="fieldDescription">This product uses the TMDB API but is not endorsed or certified by TMDB. Download and use trailers only where you have the necessary rights and in accordance with the source service's terms.</p>
+            </div>
+        </div>
+        <script type="text/javascript">
+            (function () {
+                const page = document.querySelector('#TrailerReelConfigPage');
+                const form = document.querySelector('#TrailerReelConfigForm');
+                const pluginId = 'c124b60d-fb89-47bb-9c93-fc2649152a75';
+                const checkboxIds = [
+                    'Enabled',
+                    'OfficialTrailersOnly',
+                    'RequireExact1080p',
+                    'DeleteExpiredManagedTrailers',
+                    'SkipWhenResuming',
+                    'AvoidRepeatTrailersPerUser'
+                ];
+                const textIds = ['TmdbReadAccessToken', 'TrailerFolderPath', 'YtDlpPath', 'YtDlpConfigPath'];
+                const integerIds = ['MonthsBack', 'MonthsAhead', 'MaxTrailers', 'TrailersBeforeMovie'];
+
+                page.addEventListener('pageshow', function () {
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                        checkboxIds.forEach(function (id) { document.querySelector('#' + id).checked = !!config[id]; });
+                        textIds.forEach(function (id) { document.querySelector('#' + id).value = config[id] || ''; });
+                        integerIds.forEach(function (id) { document.querySelector('#' + id).value = config[id]; });
+                        Dashboard.hideLoadingMsg();
+                    });
+                });
+
+                form.addEventListener('submit', function (event) {
+                    event.preventDefault();
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                        checkboxIds.forEach(function (id) { config[id] = document.querySelector('#' + id).checked; });
+                        textIds.forEach(function (id) { config[id] = document.querySelector('#' + id).value.trim(); });
+                        integerIds.forEach(function (id) { config[id] = parseInt(document.querySelector('#' + id).value, 10); });
+                        config.Region = 'US';
+                        config.Language = 'en-US';
+                        return ApiClient.updatePluginConfiguration(pluginId, config);
+                    }).then(function (result) {
+                        Dashboard.processPluginConfigurationUpdateResult(result);
+                    });
+                    return false;
+                });
+            }());
+        </script>
+    </div>
+</body>
+</html>
