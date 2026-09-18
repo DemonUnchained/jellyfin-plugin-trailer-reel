@@ -28,26 +28,35 @@ jobs:
           path: |
             dist/trailer-reel_*.zip
             dist/jellyfin-trailer-reel-source_*.zip
+            dist/SHA256SUMS-*.txt
       - name: Validate release tag
         if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         run: |
-          asset="$(find dist -maxdepth 1 -type f -name 'trailer-reel_*.zip' -print -quit)"
-          version="$(basename "$asset" .zip)"
-          version="${version#trailer-reel_}"
+          version="$(sed -n 's:.*<Version>\([^<]*\)</Version>.*:\1:p' src/Jellyfin.Plugin.TrailerReel/Jellyfin.Plugin.TrailerReel.csproj | head -n 1)"
           test "$GITHUB_REF_NAME" = "v$version"
+          test -f "dist/trailer-reel_$version.zip"
+          test -f "dist/trailer-reel_$version-manual.zip"
+          test -f "dist/jellyfin-trailer-reel-source_$version.zip"
+          test -f "dist/SHA256SUMS-$version.txt"
       - name: Publish GitHub release
         if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          install_asset="$(find dist -maxdepth 1 -type f -name 'trailer-reel_*.zip' -print -quit)"
-          source_asset="$(find dist -maxdepth 1 -type f -name 'jellyfin-trailer-reel-source_*.zip' -print -quit)"
+          version="${GITHUB_REF_NAME#v}"
+          catalog_asset="dist/trailer-reel_$version.zip"
+          manual_asset="dist/trailer-reel_$version-manual.zip"
+          source_asset="dist/jellyfin-trailer-reel-source_$version.zip"
+          checksum_asset="dist/SHA256SUMS-$version.txt"
+          release_notes="$(python3 -c 'import json; print(json.load(open("src/Jellyfin.Plugin.TrailerReel/meta.json", encoding="utf-8"))["changelog"])')"
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" "$install_asset" "$source_asset" --clobber
+            gh release upload "$GITHUB_REF_NAME" \
+              "$catalog_asset" "$manual_asset" "$source_asset" "$checksum_asset" --clobber
           else
-            gh release create "$GITHUB_REF_NAME" "$install_asset" "$source_asset" \
+            gh release create "$GITHUB_REF_NAME" \
+              "$catalog_asset" "$manual_asset" "$source_asset" "$checksum_asset" \
               --title "Trailer Reel ${GITHUB_REF_NAME#v}" \
-              --generate-notes
+              --notes "$release_notes"
           fi

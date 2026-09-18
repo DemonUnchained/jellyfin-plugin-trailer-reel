@@ -9,6 +9,10 @@ using Microsoft.Extensions.Logging.Abstractions;
 var failures = new List<string>();
 
 Check(
+    "assembly version is 0.3.0.1",
+    typeof(PluginConfiguration).Assembly.GetName().Version == new Version(0, 3, 0, 1));
+
+Check(
     "genre aliases overlap",
     GenreTools.HasOverlap(["Sci-Fi", "Drama"], ["Science Fiction"]));
 Check(
@@ -23,6 +27,34 @@ Check("anime trailer pool is enabled by default", defaultConfig.EnableAnimeMovie
 Check("anime movie library defaults to Anime Movies", defaultConfig.AnimeMovieLibraryName == "Anime Movies");
 Check("anime trailer pool defaults to a 30-file cap", defaultConfig.MaxAnimeTrailers == 30);
 Check("anime library name matching ignores case", AnimeMovieRules.LibraryNameMatches("anime movies", "Anime Movies"));
+
+var windowStart = new DateOnly(2026, 7, 18);
+var windowEnd = new DateOnly(2027, 3, 18);
+var regularDiscovery = TmdbClient.CreateRegularDiscoveryParameters(28, windowStart, windowEnd, 1, defaultConfig);
+Check(
+    "regular discovery filters primary releases instead of admitting old rereleases",
+    regularDiscovery["primary_release_date.gte"] == "2026-07-18"
+        && regularDiscovery["primary_release_date.lte"] == "2027-03-18"
+        && !regularDiscovery.ContainsKey("release_date.gte")
+        && !regularDiscovery.ContainsKey("release_date.lte"));
+Check(
+    "regular discovery keeps the US locale and requested release types",
+    regularDiscovery["region"] == "US"
+        && regularDiscovery["language"] == "en-US"
+        && regularDiscovery["with_release_type"] == "2|3|4");
+var animeDiscovery = TmdbClient.CreateAnimeDiscoveryParameters(windowStart, windowEnd, 2, defaultConfig);
+Check(
+    "anime discovery uses the same primary release window",
+    animeDiscovery.ContainsKey("primary_release_date.gte")
+        && animeDiscovery.ContainsKey("primary_release_date.lte")
+        && !animeDiscovery.ContainsKey("release_date.gte")
+        && animeDiscovery["with_original_language"] == "ja"
+        && animeDiscovery["with_origin_country"] == "JP");
+Check(
+    "returned US release dates are constrained to the configured window",
+    TmdbClient.IsWithinReleaseWindow(windowStart, windowStart, windowEnd)
+        && TmdbClient.IsWithinReleaseWindow(windowEnd, windowStart, windowEnd)
+        && !TmdbClient.IsWithinReleaseWindow(new DateOnly(2022, 5, 27), windowStart, windowEnd));
 
 var japaneseAnimation = new MovieCandidate(90, "Anime", new DateOnly(2026, 10, 1), [16, 28], 50)
 {
@@ -67,6 +99,15 @@ try
     Check(
         "version 0.2 catalog entries migrate into the regular pool",
         migratedCatalog.Trailers.Count == 1 && migratedCatalog.Trailers[0].Pool == TrailerPool.Regular);
+
+    var expectedReleaseDate = new DateOnly(2026, 12, 25);
+    migratedCatalog.Trailers[0].ReleaseDate = expectedReleaseDate;
+    await catalogStore.SaveAsync(catalogMigrationFolder, migratedCatalog, CancellationToken.None);
+    var reloadedCatalogStore = new CatalogStore(NullLogger<CatalogStore>.Instance);
+    var reloadedCatalog = await reloadedCatalogStore.LoadAsync(catalogMigrationFolder, CancellationToken.None);
+    Check(
+        "catalog release dates survive a save and reload",
+        reloadedCatalog.Trailers[0].ReleaseDate == expectedReleaseDate);
 }
 finally
 {
