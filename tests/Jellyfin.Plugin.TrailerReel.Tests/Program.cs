@@ -1,8 +1,10 @@
 using Emby.Naming.Common;
 using Emby.Naming.Video;
+using Jellyfin.Plugin.TrailerReel.Configuration;
 using Jellyfin.Plugin.TrailerReel.Models;
 using Jellyfin.Plugin.TrailerReel.Services;
 using MediaBrowser.Model.Entities;
+using Microsoft.Extensions.Logging.Abstractions;
 
 var failures = new List<string>();
 
@@ -15,6 +17,64 @@ Check(
 Check(
     "anime maps to TMDb animation",
     GenreTools.HasOverlap(["Anime"], ["Animation"]));
+
+var defaultConfig = new PluginConfiguration();
+Check("anime trailer pool is enabled by default", defaultConfig.EnableAnimeMovieTrailers);
+Check("anime movie library defaults to Anime Movies", defaultConfig.AnimeMovieLibraryName == "Anime Movies");
+Check("anime trailer pool defaults to a 30-file cap", defaultConfig.MaxAnimeTrailers == 30);
+Check("anime library name matching ignores case", AnimeMovieRules.LibraryNameMatches("anime movies", "Anime Movies"));
+
+var japaneseAnimation = new MovieCandidate(90, "Anime", new DateOnly(2026, 10, 1), [16, 28], 50)
+{
+    OriginalLanguage = "ja",
+    OriginCountryCodes = ["JP"],
+};
+var japaneseLiveAction = new MovieCandidate(91, "Live Action", new DateOnly(2026, 10, 1), [28], 50)
+{
+    OriginalLanguage = "ja",
+    OriginCountryCodes = ["JP"],
+};
+var westernAnimation = new MovieCandidate(92, "Western Animation", new DateOnly(2026, 10, 1), [16], 50)
+{
+    OriginalLanguage = "en",
+    OriginCountryCodes = ["US"],
+};
+Check("Japanese animation is classified as anime", AnimeMovieRules.IsAnimeCandidate(japaneseAnimation));
+Check("Japanese live action is not classified as anime", !AnimeMovieRules.IsAnimeCandidate(japaneseLiveAction));
+Check("Western animation is not classified as anime", !AnimeMovieRules.IsAnimeCandidate(westernAnimation));
+
+var poolEntries = new[]
+{
+    new TrailerEntry { TmdbMovieId = 1, Pool = TrailerPool.Regular },
+    new TrailerEntry { TmdbMovieId = 2, Pool = TrailerPool.Anime },
+};
+Check(
+    "regular playback selects only the regular trailer pool",
+    TrailerPoolSelector.Select(poolEntries, animeFeature: false).Select(entry => entry.TmdbMovieId).SequenceEqual([1]));
+Check(
+    "anime playback selects only the anime trailer pool",
+    TrailerPoolSelector.Select(poolEntries, animeFeature: true).Select(entry => entry.TmdbMovieId).SequenceEqual([2]));
+
+var catalogMigrationFolder = Path.Combine(Path.GetTempPath(), $"trailer-reel-catalog-{Guid.NewGuid():N}");
+try
+{
+    Directory.CreateDirectory(catalogMigrationFolder);
+    File.WriteAllText(
+        Path.Combine(catalogMigrationFolder, CatalogStore.CatalogFileName),
+        """{"schemaVersion":1,"trailers":[{"tmdbMovieId":77,"movieName":"Legacy"}]}""");
+    var catalogStore = new CatalogStore(NullLogger<CatalogStore>.Instance);
+    var migratedCatalog = await catalogStore.LoadAsync(catalogMigrationFolder, CancellationToken.None);
+    Check(
+        "version 0.2 catalog entries migrate into the regular pool",
+        migratedCatalog.Trailers.Count == 1 && migratedCatalog.Trailers[0].Pool == TrailerPool.Regular);
+}
+finally
+{
+    if (Directory.Exists(catalogMigrationFolder))
+    {
+        Directory.Delete(catalogMigrationFolder, recursive: true);
+    }
+}
 
 var localMovies = new LocalMovieInventory(
     ["Action", "Sci-Fi"],
