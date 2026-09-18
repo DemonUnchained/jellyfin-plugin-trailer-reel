@@ -6,8 +6,8 @@ project_path="$repo_dir/src/Jellyfin.Plugin.TrailerReel/Jellyfin.Plugin.TrailerR
 test_path="$repo_dir/tests/Jellyfin.Plugin.TrailerReel.Tests/Jellyfin.Plugin.TrailerReel.Tests.csproj"
 build_dir="$repo_dir/src/Jellyfin.Plugin.TrailerReel/bin/Release/net10.0"
 dist_dir="$repo_dir/dist"
-stage_dir="$dist_dir/TrailerReel_0.2.1.4"
-source_zip="$dist_dir/jellyfin-trailer-reel-source_0.2.1.4.zip"
+stage_dir="$dist_dir/TrailerReel_0.3.0.0"
+source_zip="$dist_dir/jellyfin-trailer-reel-source_0.3.0.0.zip"
 
 if [[ "${1:-}" == "--package-only" ]]; then
     if [[ ! -f "$build_dir/Jellyfin.Plugin.TrailerReel.dll" \
@@ -32,10 +32,10 @@ cp "$repo_dir/LICENSE" "$stage_dir/"
 cp -R "$repo_dir/tools" "$stage_dir/"
 cp -R "$repo_dir/deploy" "$stage_dir/"
 
-rm -f "$dist_dir/trailer-reel_0.2.1.4.zip"
+rm -f "$dist_dir/trailer-reel_0.3.0.0.zip"
 (
     cd "$dist_dir"
-    zip -qr "trailer-reel_0.2.1.4.zip" "TrailerReel_0.2.1.4"
+    zip -qr "trailer-reel_0.3.0.0.zip" "TrailerReel_0.3.0.0"
 )
 
 rm -f "$source_zip"
@@ -45,5 +45,5 @@ rm -f "$source_zip"
         -x '*/dist/*' '*/bin/*' '*/obj/*' '*/.git/*'
 )
 
-echo "Created $dist_dir/trailer-reel_0.2.1.4.zip"
+echo "Created $dist_dir/trailer-reel_0.3.0.0.zip"
 echo "Created $source_zip"

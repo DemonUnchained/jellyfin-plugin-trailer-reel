@@ -1,21 +1,24 @@
 # Trailer Reel for Jellyfin
 
-Trailer Reel is a Jellyfin 12.1 server plugin that maintains a local catalog of recent and upcoming movie trailers and inserts three same-genre trailers before a movie.
+Trailer Reel is a Jellyfin 12.1 server plugin that maintains isolated local catalogs of recent and upcoming regular-movie and anime-movie trailers and inserts three same-genre trailers before a movie.
 
-## What version 0.2.x does
+## What version 0.3.x does
 
-- Reads the genres already present on movies in the local Jellyfin database.
+- Reads the genres already present on movies in the local Jellyfin database and separates movies belonging to the configured `Anime Movies` library.
 - Uses the TMDb API with locale `en-US`, region `US`, and U.S. limited/theatrical/digital release types.
 - Recalculates the discovery window on every refresh: two months before today through six months after today by default.
 - Selects candidates round-robin across the local genres so one popular genre does not consume the entire catalog.
+- Discovers a dedicated anime pool using TMDb's Animation genre together with Japanese original-language and Japan-origin filters.
+- Caps the regular pool at 100 files and the anime pool at 30 files by default.
+- Returns anime trailers only for movies in the configured anime-movie library; ordinary movies can use only the regular pool.
 - Excludes movies already hosted in Jellyfin, matching by TMDb ID and falling back to normalized title/year when a local movie has no TMDb ID.
 - Chooses official YouTube trailers listed by TMDb.
 - Calls a user-supplied `yt-dlp` executable and requires an exact 1080p format by default.
-- Stores at most 100 files and names them `Movie Name-trailer.ext`.
+- Names every downloaded file `Movie Name-trailer.ext` regardless of its pool.
 - Uses `Movie Name (Year)-trailer.ext`, then `Movie Name [tmdb-ID]-trailer.ext`, only when duplicate movie names would collide.
 - Creates a Jellyfin home-video library named `Trailer Reel (Internal)`, excludes it from users' My Media and Latest views, and indexes the downloaded files for playback.
 - Preserves the required `Movie Name-trailer.ext` files while creating relative symlink aliases under `TrailerReelIndex/` whose names Jellyfin 12.1 will index. The aliases consume no duplicate video space and resolve back to the originals during playback.
-- Implements Jellyfin's native `IIntroProvider` and returns up to three files sharing at least one genre with the selected movie.
+- Implements Jellyfin's native `IIntroProvider` and returns up to three files from the correct pool that share at least one genre with the selected movie.
 - Uses Jellyfin's per-user watched state so a trailer committed to one user's preroll queue is not selected for that user again; other users can still receive it.
 - Skips trailers when resuming a partially watched movie by default.
 - Never deletes an arbitrary file: cleanup is limited to filenames recorded in `.trailer-reel-catalog.json` inside the configured trailer folder.
@@ -33,17 +36,17 @@ The TMDb token is masked in the plugin page but Jellyfin stores plugin configura
 
 ## Manual installation
 
-1. Extract `TrailerReel_0.2.1.4` from the release ZIP into Jellyfin's persistent `plugins` directory.
+1. Extract `TrailerReel_0.3.0.0` from the release ZIP into Jellyfin's persistent `plugins` directory.
 2. Confirm this path exists inside the configuration volume:
 
    ```text
-   plugins/TrailerReel_0.2.1.4/Jellyfin.Plugin.TrailerReel.dll
+   plugins/TrailerReel_0.3.0.0/Jellyfin.Plugin.TrailerReel.dll
    ```
 
 3. If Jellyfin runs as a numeric Docker user, make the extracted directory owned by that same UID/GID before startup. Rocinante uses `99:100`:
 
    ```bash
-   chown -R 99:100 /mnt/user/appdata/jellyfin/config/plugins/TrailerReel_0.2.1.4
+   chown -R 99:100 /mnt/user/appdata/jellyfin/config/plugins/TrailerReel_0.3.0.0
    ```
 
 4. Restart Jellyfin.
@@ -89,7 +92,10 @@ Replace `jellyfin` if the container has a different name.
 
    - Months before today: `2`
    - Months after today: `6`
-   - Maximum trailer files: `100`
+   - Maximum regular-movie trailer files: `100`
+   - Separate anime-movie trailer pool: enabled
+   - Anime movie library name: `Anime Movies`
+   - Maximum anime-movie trailer files: `30`
    - Trailers before each movie: `3`
    - Region/language: fixed at `US` / `en-US`
    - Exact 1080p: enabled
@@ -111,7 +117,9 @@ Only a fresh movie start requests trailers. Resuming is deliberately skipped, an
 
 ## How matching works
 
-If the selected movie has `Action`, `Science Fiction`, and `Adventure`, any catalog trailer sharing at least one of those genres is eligible. `Sci-Fi`, `Sci Fi`, and `Science-Fiction` are normalized to TMDb's `Science Fiction`. Three unique candidates are selected randomly. A selected trailer is marked watched for the requesting Jellyfin user before it is returned, and future queues exclude watched trailer items for that user. A short 30-second cache keeps duplicate intro lookups from the same movie launch stable without creating a long repeat window.
+Trailer Reel first asks Jellyfin which top-level library contains the selected movie. A movie in `Anime Movies` can use only the anime pool; a movie in every other library can use only the regular pool. Within that pool, a movie with `Action`, `Science Fiction`, and `Adventure` can receive any trailer sharing at least one of those genres. `Sci-Fi`, `Sci Fi`, and `Science-Fiction` are normalized to TMDb's `Science Fiction`.
+
+Three unique candidates are selected randomly. A selected trailer is marked watched for the requesting Jellyfin user before it is returned, and future queues exclude watched trailer items for that user. A short 30-second cache keeps duplicate intro lookups from the same movie launch stable without creating a long repeat window.
 
 This watched state is per Jellyfin profile. Trailer media is not deleted merely because one user saw it, so another profile can still receive it. Files are removed only by the managed catalog's date-window and cap cleanup. If a client fails after requesting its queue, those trailers still count as watched; this deliberate optimistic marking gives the strongest guarantee against repeats.
 
@@ -121,13 +129,13 @@ If fewer than three indexed matching trailers exist, the plugin returns only the
 
 ## Operational notes
 
-- Downloading up to 100 trailers can take a long time and may trigger source-site rate limits. Downloads are intentionally serial.
+- Downloading up to 100 regular trailers plus 30 anime trailers can take a long time and may trigger source-site rate limits. Downloads are intentionally serial.
 - A failed exact-1080p candidate is skipped and the task tries another candidate.
 - The plugin does not download a second copy of a TMDb movie already present in its catalog.
 - Each refresh drops trailers for movies now hosted locally from the active catalog. When managed-file cleanup is enabled, it also deletes those catalog-managed trailer files.
 - `TrailerReelIndex/` contains only relative symlink aliases used to avoid Jellyfin's special handling of the `-trailer` suffix. Trailer Reel reconciles its own marked aliases on every refresh; deleting an alias does not delete the original video.
 - The hidden library is implementation plumbing: Jellyfin requires real library item IDs to construct playable media sources for intros.
-- This preview has been compiled against the released Jellyfin 12.1.0 packages, its selection/naming tests pass on .NET 10, and the packaged plugin has completed a clean disposable Jellyfin 12.1 server startup with its scheduled task registered. Exercise the first install on Rocinante with a low cap before allowing a 100-file run.
+- This preview has been compiled against the released Jellyfin 12.1.0 packages, and its pool-isolation, anime-classification, selection, indexing, and naming tests pass on .NET 10. Exercise the anime pool on Rocinante with a low cap before allowing the full 30-file run.
 
 ## Build
 
