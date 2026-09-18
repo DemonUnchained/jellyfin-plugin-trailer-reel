@@ -41,20 +41,8 @@ public sealed class TmdbClient
         PluginConfiguration config,
         CancellationToken cancellationToken)
     {
-        var parameters = new Dictionary<string, string>
-        {
-            ["language"] = config.Language,
-            ["region"] = config.Region,
-            ["sort_by"] = "popularity.desc",
-            ["include_adult"] = "false",
-            ["include_video"] = "true",
-            ["page"] = page.ToString(CultureInfo.InvariantCulture),
-            ["with_genres"] = genreId.ToString(CultureInfo.InvariantCulture),
-            ["with_release_type"] = "2|3|4",
-            ["release_date.gte"] = start.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-            ["release_date.lte"] = end.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-        };
-        return await DiscoverMoviesAsync(parameters, config, cancellationToken).ConfigureAwait(false);
+        var parameters = CreateRegularDiscoveryParameters(genreId, start, end, page, config);
+        return await DiscoverMoviesAsync(parameters, start, end, config, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<MovieCandidate>> DiscoverAnimeMoviesAsync(
@@ -64,7 +52,43 @@ public sealed class TmdbClient
         PluginConfiguration config,
         CancellationToken cancellationToken)
     {
-        var parameters = new Dictionary<string, string>
+        var parameters = CreateAnimeDiscoveryParameters(start, end, page, config);
+        return await DiscoverMoviesAsync(parameters, start, end, config, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal static Dictionary<string, string> CreateRegularDiscoveryParameters(
+        int genreId,
+        DateOnly start,
+        DateOnly end,
+        int page,
+        PluginConfiguration config)
+    {
+        var parameters = CreateDiscoveryParameters(start, end, page, config);
+        parameters["with_genres"] = genreId.ToString(CultureInfo.InvariantCulture);
+        return parameters;
+    }
+
+    internal static Dictionary<string, string> CreateAnimeDiscoveryParameters(
+        DateOnly start,
+        DateOnly end,
+        int page,
+        PluginConfiguration config)
+    {
+        var parameters = CreateDiscoveryParameters(start, end, page, config);
+        parameters["with_genres"] = AnimeMovieRules.AnimationGenreId.ToString(CultureInfo.InvariantCulture);
+        parameters["with_original_language"] = "ja";
+        parameters["with_origin_country"] = "JP";
+        return parameters;
+    }
+
+    internal static bool IsWithinReleaseWindow(DateOnly releaseDate, DateOnly start, DateOnly end) =>
+        releaseDate >= start && releaseDate <= end;
+
+    private static Dictionary<string, string> CreateDiscoveryParameters(
+        DateOnly start,
+        DateOnly end,
+        int page,
+        PluginConfiguration config) => new()
         {
             ["language"] = config.Language,
             ["region"] = config.Region,
@@ -72,18 +96,17 @@ public sealed class TmdbClient
             ["include_adult"] = "false",
             ["include_video"] = "true",
             ["page"] = page.ToString(CultureInfo.InvariantCulture),
-            ["with_genres"] = AnimeMovieRules.AnimationGenreId.ToString(CultureInfo.InvariantCulture),
-            ["with_original_language"] = "ja",
-            ["with_origin_country"] = "JP",
             ["with_release_type"] = "2|3|4",
-            ["release_date.gte"] = start.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-            ["release_date.lte"] = end.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            // TMDb's regional release_date filter also admits old movies with a current re-release.
+            // Limit discovery by the movie's primary release, then validate the returned US date below.
+            ["primary_release_date.gte"] = start.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            ["primary_release_date.lte"] = end.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
         };
-        return await DiscoverMoviesAsync(parameters, config, cancellationToken).ConfigureAwait(false);
-    }
 
     private async Task<IReadOnlyList<MovieCandidate>> DiscoverMoviesAsync(
         IReadOnlyDictionary<string, string> parameters,
+        DateOnly start,
+        DateOnly end,
         PluginConfiguration config,
         CancellationToken cancellationToken)
     {
@@ -102,7 +125,8 @@ public sealed class TmdbClient
                     "yyyy-MM-dd",
                     CultureInfo.InvariantCulture,
                     DateTimeStyles.None,
-                    out var releaseDate))
+                    out var releaseDate)
+                || !IsWithinReleaseWindow(releaseDate, start, end))
             {
                 continue;
             }
