@@ -6,6 +6,7 @@ Trailer Reel is a Jellyfin 12.1 server plugin that maintains isolated local cata
 
 - Reads the genres already present on movies in the local Jellyfin database and separates movies belonging to the configured `Anime Movies` library.
 - Uses the TMDb API with locale `en-US`, region `US`, and U.S. limited/theatrical/digital release types.
+- Requires both the movie's primary release date and the returned U.S. release date to fall inside the configured window, preventing old theatrical re-releases from cycling through the catalog.
 - Recalculates the discovery window on every refresh: two months before today through six months after today by default.
 - Selects candidates round-robin across the local genres so one popular genre does not consume the entire catalog.
 - Discovers a dedicated anime pool using TMDb's Animation genre together with Japanese original-language and Japan-origin filters.
@@ -36,17 +37,17 @@ The TMDb token is masked in the plugin page but Jellyfin stores plugin configura
 
 ## Manual installation
 
-1. Extract `TrailerReel_0.3.0.0` from the release ZIP into Jellyfin's persistent `plugins` directory.
+1. Download the `trailer-reel_0.3.0.1-manual.zip` release asset and extract `TrailerReel_0.3.0.1` into Jellyfin's persistent `plugins` directory. The similarly named ZIP without `-manual` is the root-level package used by Jellyfin's plugin catalog and must not be extracted directly into the shared `plugins` directory.
 2. Confirm this path exists inside the configuration volume:
 
    ```text
-   plugins/TrailerReel_0.3.0.0/Jellyfin.Plugin.TrailerReel.dll
+   plugins/TrailerReel_0.3.0.1/Jellyfin.Plugin.TrailerReel.dll
    ```
 
 3. If Jellyfin runs as a numeric Docker user, make the extracted directory owned by that same UID/GID before startup. Rocinante uses `99:100`:
 
    ```bash
-   chown -R 99:100 /mnt/user/appdata/jellyfin/config/plugins/TrailerReel_0.3.0.0
+   chown -R 99:100 /mnt/user/appdata/jellyfin/config/plugins/TrailerReel_0.3.0.1
    ```
 
 4. Restart Jellyfin.
@@ -145,7 +146,7 @@ If fewer than three indexed matching trailers exist, the plugin returns only the
 ./build.sh
 ```
 
-The script restores packages, builds Release, runs the lightweight test executable, and writes the install ZIP to `dist/`.
+The script restores packages, builds Release, runs the lightweight test executable, and writes three ZIP assets plus a checksum file to `dist/`: a root-level runtime ZIP for Jellyfin's plugin catalog, a full `-manual.zip` bundle with one enclosing plugin directory, and a source ZIP.
 
 For a documentation/tooling-only revision using an already validated Release build:
 
