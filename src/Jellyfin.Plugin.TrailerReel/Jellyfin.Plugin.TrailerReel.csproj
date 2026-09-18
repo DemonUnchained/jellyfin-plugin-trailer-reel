@@ -3,7 +3,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Jellyfin.Plugin.TrailerReel</RootNamespace>
     <AssemblyName>Jellyfin.Plugin.TrailerReel</AssemblyName>
-    <Version>0.3.0.0</Version>
+    <Version>0.3.0.1</Version>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
@@ -25,5 +25,9 @@
     <None Include="meta.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Jellyfin.Plugin.TrailerReel.Tests" />
   </ItemGroup>
 </Project>
