@@ -1,14 +1,14 @@
 {
   "category": "General",
-  "changelog": "Prevents old U.S. re-releases from entering the recent/upcoming window, validates returned U.S. release dates before download, and corrects the Jellyfin catalog package layout.",
+  "changelog": "Makes preroll matching strict: every queued trailer must match the movie's first Jellyfin genre, preventing secondary genres from mixing unrelated trailers into the queue. Playback logs now report the anchor genre and each selected trailer's genres.",
   "description": "Maintains separate recent and upcoming regular-movie and anime-movie trailer pools and plays same-genre trailers before movies.",
   "guid": "c124b60d-fb89-47bb-9c93-fc2649152a75",
   "name": "Trailer Reel",
   "overview": "Recent and upcoming same-genre regular and anime movie trailers as Jellyfin prerolls.",
-  "owner": "Rocinante",
+  "owner": "DemonUnchained",
   "targetAbi": "12.1.0.0",
-  "timestamp": "2026-09-18T17:45:20Z",
-  "version": "0.3.0.1",
+  "timestamp": "2026-09-19T23:32:00Z",
+  "version": "0.3.0.2",
   "status": "Active",
   "autoUpdate": false,
   "assemblies": [

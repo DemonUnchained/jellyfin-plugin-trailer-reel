@@ -28,6 +28,38 @@ public static class GenreTools
             .Select(Canonicalize)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+    public static string? GetAnchorGenre(IEnumerable<string> genres)
+    {
+        ArgumentNullException.ThrowIfNull(genres);
+
+        foreach (var genre in genres)
+        {
+            if (!string.IsNullOrWhiteSpace(genre))
+            {
+                return Canonicalize(genre);
+            }
+        }
+
+        return null;
+    }
+
+    public static bool MatchesAnchorGenre(
+        IEnumerable<string> candidateGenres,
+        IEnumerable<string> featureGenres)
+    {
+        ArgumentNullException.ThrowIfNull(candidateGenres);
+        ArgumentNullException.ThrowIfNull(featureGenres);
+
+        var anchorGenre = GetAnchorGenre(featureGenres);
+        return anchorGenre is not null
+            && candidateGenres.Any(genre =>
+                !string.IsNullOrWhiteSpace(genre)
+                && string.Equals(
+                    Canonicalize(genre),
+                    anchorGenre,
+                    StringComparison.OrdinalIgnoreCase));
+    }
+
     public static bool HasOverlap(IEnumerable<string> first, IEnumerable<string> second)
     {
         var set = CanonicalSet(first);

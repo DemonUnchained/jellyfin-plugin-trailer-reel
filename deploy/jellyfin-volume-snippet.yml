@@ -1,6 +1,6 @@
 # Merge the /trailers entry into the existing Jellyfin service.
-# This is a snippet, not a replacement for Rocinante's complete Compose file.
+# This is a snippet, not a replacement for the complete Compose file.
 services:
   jellyfin:
     volumes:
-      - /mnt/user/appdata/jellyfin/trailer-reel/trailers:/trailers
+      - /path/to/jellyfin/trailer-reel/trailers:/trailers

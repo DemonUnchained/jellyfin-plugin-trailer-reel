@@ -9,8 +9,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 var failures = new List<string>();
 
 Check(
-    "assembly version is 0.3.0.1",
-    typeof(PluginConfiguration).Assembly.GetName().Version == new Version(0, 3, 0, 1));
+    "assembly version is 0.3.0.2",
+    typeof(PluginConfiguration).Assembly.GetName().Version == new Version(0, 3, 0, 2));
 
 Check(
     "genre aliases overlap",
@@ -21,6 +21,18 @@ Check(
 Check(
     "anime maps to TMDb animation",
     GenreTools.HasOverlap(["Anime"], ["Animation"]));
+Check(
+    "first listed feature genre becomes the anchor genre",
+    GenreTools.GetAnchorGenre(["Horror", "Fantasy", "Comedy"]) == "Horror");
+Check(
+    "anchor genre matching accepts the feature's primary genre",
+    GenreTools.MatchesAnchorGenre(["Horror", "Mystery"], ["Horror", "Fantasy"]));
+Check(
+    "anchor genre matching rejects a secondary-only overlap",
+    !GenreTools.MatchesAnchorGenre(["Fantasy", "Family"], ["Horror", "Fantasy"]));
+Check(
+    "anchor genre matching applies aliases",
+    GenreTools.MatchesAnchorGenre(["Science Fiction"], ["Sci-Fi", "Adventure"]));
 
 var defaultConfig = new PluginConfiguration();
 Check("anime trailer pool is enabled by default", defaultConfig.EnableAnimeMovieTrailers);

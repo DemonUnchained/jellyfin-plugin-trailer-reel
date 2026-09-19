@@ -81,11 +81,12 @@ public sealed class GenreTrailerIntroProvider : IIntroProvider
 
         var poolTrailers = TrailerPoolSelector.Select(catalog.Trailers, animeFeature);
         var featureGenres = item.Genres ?? [];
+        var anchorGenre = GenreTools.GetAnchorGenre(featureGenres);
         var featureTmdbId = item.ProviderIds.TryGetValue("Tmdb", out var id) ? id : null;
 
         var genreMatches = poolTrailers
             .Where(entry => !string.Equals(entry.TmdbMovieId.ToString(), featureTmdbId, StringComparison.Ordinal))
-            .Where(entry => GenreTools.HasOverlap(entry.Genres, featureGenres))
+            .Where(entry => GenreTools.MatchesAnchorGenre(entry.Genres, featureGenres))
             .ToList();
         var candidates = genreMatches
             .Where(entry => File.Exists(Path.Combine(folder, entry.FileName)))
@@ -100,6 +101,7 @@ public sealed class GenreTrailerIntroProvider : IIntroProvider
             {
                 var userData = _userDataManager.GetUserData(user, libraryItem);
                 available.Add(new AvailableTrailer(
+                    entry,
                     libraryItem,
                     new IntroInfo { Path = libraryItem.Path, ItemId = libraryItem.Id },
                     userData?.Played == true));
@@ -116,6 +118,7 @@ public sealed class GenreTrailerIntroProvider : IIntroProvider
             config.TrailersBeforeMovie,
             config.AvoidRepeatTrailersPerUser);
         var intros = new List<IntroInfo>(selected.Count);
+        var queued = new List<AvailableTrailer>(selected.Count);
         foreach (var candidate in selected)
         {
             if (config.AvoidRepeatTrailersPerUser)
@@ -147,6 +150,7 @@ public sealed class GenreTrailerIntroProvider : IIntroProvider
             }
 
             intros.Add(candidate.Intro);
+            queued.Add(candidate);
         }
 
         _selectionCache[key] = new CachedSelection(now.Add(CacheLifetime), intros);
@@ -156,19 +160,33 @@ public sealed class GenreTrailerIntroProvider : IIntroProvider
         }
 
         _logger.LogInformation(
-            "Trailer Reel queued {Count} same-genre {Pool} trailer(s) before {MovieName}: {CatalogCount} in pool, {GenreMatchCount} genre-matched, {PresentCount} present, {IndexedCount} indexed, {WatchedCount} already watched by this user",
+            "Trailer Reel queued {Count} anchor-genre {Pool} trailer(s) before {MovieName}: anchor {AnchorGenre}, feature genres [{FeatureGenres}], {CatalogCount} in pool, {GenreMatchCount} anchor-matched, {PresentCount} present, {IndexedCount} indexed, {WatchedCount} already watched by this user; selected {SelectedTrailers}",
             intros.Count,
             animeFeature ? "anime" : "regular",
             item.Name,
+            anchorGenre ?? "(none)",
+            string.Join(
+                ", ",
+                featureGenres
+                    .Where(genre => !string.IsNullOrWhiteSpace(genre))
+                    .Select(GenreTools.Canonicalize)),
             poolTrailers.Count,
             genreMatches.Count,
             candidates.Count,
             available.Count,
-            available.Count(candidate => candidate.Watched));
+            available.Count(candidate => candidate.Watched),
+            string.Join(
+                "; ",
+                queued.Select(candidate =>
+                    $"{candidate.Entry.MovieName} [{string.Join(", ", candidate.Entry.Genres)}]")));
         return intros;
     }
 
-    private sealed record AvailableTrailer(BaseItem LibraryItem, IntroInfo Intro, bool Watched);
+    private sealed record AvailableTrailer(
+        TrailerEntry Entry,
+        BaseItem LibraryItem,
+        IntroInfo Intro,
+        bool Watched);
 
     private sealed record CachedSelection(DateTimeOffset ExpiresUtc, IReadOnlyList<IntroInfo> Intros);
 }
