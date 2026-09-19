@@ -55,7 +55,7 @@
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="AnimeMovieLibraryName">Anime movie library name</label>
                         <input id="AnimeMovieLibraryName" type="text" is="emby-input" placeholder="Anime Movies">
-                        <div class="fieldDescription">Enter the exact Jellyfin library name. Rocinante uses Anime Movies.</div>
+                        <div class="fieldDescription">Enter the exact Jellyfin library name, such as Anime Movies.</div>
                     </div>
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="MaxAnimeTrailers">Maximum anime-movie trailer files</label>
@@ -67,7 +67,7 @@
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="TrailerFolderPath">Trailer folder inside the Jellyfin container</label>
                         <input id="TrailerFolderPath" type="text" is="emby-input" placeholder="/trailers">
-                        <div class="fieldDescription">For Rocinante, use /trailers backed by the Applications pool. The container path must be writable.</div>
+                        <div class="fieldDescription">Use a persistent writable container path, such as /trailers.</div>
                     </div>
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="YtDlpPath">yt-dlp executable path inside the container</label>
@@ -97,6 +97,7 @@
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="TrailersBeforeMovie">Same-genre trailers before each movie</label>
                         <input id="TrailersBeforeMovie" type="number" min="1" max="10" is="emby-input">
+                        <div class="fieldDescription">Every queued trailer must match the movie's first genre listed by Jellyfin. If fewer unwatched matches exist, fewer trailers play instead of filling the queue from secondary genres.</div>
                     </div>
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label class="emby-checkbox-label">

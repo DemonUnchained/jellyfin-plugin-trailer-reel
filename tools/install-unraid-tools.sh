@@ -2,27 +2,33 @@
 set -euo pipefail
 
 # Run this script from the Unraid host, not from inside the Jellyfin container.
-# The defaults match Rocinante's persistent Jellyfin layout.
+# The defaults are derived from the plugin's location under Jellyfin's config directory.
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 plugin_dir="$(cd "$script_dir/.." && pwd)"
-tool_dir="${TRAILER_REEL_TOOL_DIR:-/mnt/user/appdata/jellyfin/config/trailer-tools}"
-trailer_dir="${TRAILER_REEL_MEDIA_DIR:-/mnt/user/appdata/jellyfin/trailer-reel/trailers}"
-jellyfin_owner="${TRAILER_REEL_JELLYFIN_OWNER:-99:100}"
+config_dir="$(cd "$plugin_dir/../.." && pwd)"
+jellyfin_appdata_dir="$(dirname "$config_dir")"
+tool_dir="${TRAILER_REEL_TOOL_DIR:-$config_dir/trailer-tools}"
+trailer_dir="${TRAILER_REEL_MEDIA_DIR:-$jellyfin_appdata_dir/trailer-reel/trailers}"
+jellyfin_owner="${TRAILER_REEL_JELLYFIN_OWNER:-}"
 
-for command_name in curl unzip sha256sum install awk chown; do
+for command_name in curl unzip sha256sum install awk chown stat; do
     if ! command -v "$command_name" >/dev/null 2>&1; then
         printf 'Required host command is missing: %s\n' "$command_name" >&2
         exit 1
     fi
 done
 
+if [[ -z "$jellyfin_owner" ]]; then
+    jellyfin_owner="$(stat -c '%u:%g' "$config_dir")"
+fi
+
 case "$(uname -m)" in
     x86_64|amd64)
         deno_asset="deno-x86_64-unknown-linux-gnu.zip"
         ;;
     *)
-        printf 'Unsupported host architecture: %s. Rocinante requires x86_64.\n' "$(uname -m)" >&2
+        printf 'Unsupported host architecture: %s. This installer requires x86_64.\n' "$(uname -m)" >&2
         exit 1
         ;;
 esac
