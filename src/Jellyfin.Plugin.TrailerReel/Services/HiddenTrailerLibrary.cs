@@ -87,9 +87,8 @@ public sealed class HiddenTrailerLibrary
         var root = GetRootFolder();
         if (root is CollectionFolder collectionFolder)
         {
-            // CollectionFolder.ValidateChildren is intentionally a no-op in Jellyfin 12.1.
-            // Scan its physical folders so files downloaded after the virtual library's
-            // initial scan are created as playable Jellyfin items.
+            // Scan the collection's physical folders so files downloaded after the
+            // virtual library's initial scan are created as playable Jellyfin items.
             _libraryManager.ClearIgnoreRuleCache();
             try
             {

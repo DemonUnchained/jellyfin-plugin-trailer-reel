@@ -9,8 +9,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 var failures = new List<string>();
 
 Check(
-    "assembly version is 0.3.0.2",
-    typeof(PluginConfiguration).Assembly.GetName().Version == new Version(0, 3, 0, 2));
+    "assembly version is 0.4.0.0",
+    typeof(PluginConfiguration).Assembly.GetName().Version == new Version(0, 4, 0, 0));
 
 Check(
     "genre aliases overlap",
@@ -33,6 +33,48 @@ Check(
 Check(
     "anchor genre matching applies aliases",
     GenreTools.MatchesAnchorGenre(["Science Fiction"], ["Sci-Fi", "Adventure"]));
+
+var closeHorrorMatch = GenreMatchEvaluator.Evaluate(
+    ["Horror", "Thriller"],
+    ["Horror", "Thriller", "Fantasy"]);
+var pureHorrorMatch = GenreMatchEvaluator.Evaluate(
+    ["Horror"],
+    ["Horror", "Thriller", "Fantasy"]);
+Check(
+    "close horror profile is eligible and outranks an anchor-only profile",
+    closeHorrorMatch.IsEligible
+        && pureHorrorMatch.IsEligible
+        && closeHorrorMatch.SimilarityScore > pureHorrorMatch.SimilarityScore);
+Check(
+    "animated horror is rejected for a live-action horror feature",
+    !GenreMatchEvaluator.Evaluate(
+        ["Horror", "Animation"],
+        ["Horror", "Thriller"]).IsEligible);
+Check(
+    "horror comedy is rejected when the feature is not a comedy",
+    !GenreMatchEvaluator.Evaluate(
+        ["Horror", "Comedy"],
+        ["Horror", "Thriller"]).IsEligible);
+Check(
+    "animation remains eligible when the feature also has animation",
+    GenreMatchEvaluator.Evaluate(
+        ["Horror", "Animation"],
+        ["Horror", "Animation", "Fantasy"]).IsEligible);
+Check(
+    "a lone secondary anchor overlap is rejected",
+    !GenreMatchEvaluator.Evaluate(
+        ["Science Fiction", "Horror"],
+        ["Horror", "Thriller", "Fantasy"]).IsEligible);
+Check(
+    "two shared genres can qualify when the candidate lists another primary genre",
+    GenreMatchEvaluator.Evaluate(
+        ["Mystery", "Horror", "Thriller"],
+        ["Horror", "Thriller", "Fantasy"]).IsEligible);
+Check(
+    "a mostly unrelated candidate profile is rejected",
+    !GenreMatchEvaluator.Evaluate(
+        ["Horror", "Science Fiction", "Adventure"],
+        ["Horror", "Thriller", "Fantasy"]).IsEligible);
 
 var defaultConfig = new PluginConfiguration();
 Check("anime trailer pool is enabled by default", defaultConfig.EnableAnimeMovieTrailers);
@@ -170,10 +212,10 @@ try
     var sourceNaming = VideoResolver.Resolve(sourceFileName, isDirectory: false, namingOptions);
     var aliasNaming = VideoResolver.Resolve(Path.GetFileName(playbackPath), isDirectory: false, namingOptions);
     Check(
-        "Jellyfin 12.1 classifies required source name as trailer extra",
+        "Jellyfin 12.2 classifies required source name as trailer extra",
         sourceNaming?.ExtraType == ExtraType.Trailer);
     Check(
-        "Jellyfin 12.1 classifies index alias as standalone video",
+        "Jellyfin 12.2 classifies index alias as standalone video",
         aliasNaming?.ExtraType is null);
 
     TrailerIndexStore.Synchronize(indexTestFolder, []);

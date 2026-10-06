@@ -84,24 +84,38 @@ public sealed class GenreTrailerIntroProvider : IIntroProvider
         var anchorGenre = GenreTools.GetAnchorGenre(featureGenres);
         var featureTmdbId = item.ProviderIds.TryGetValue("Tmdb", out var id) ? id : null;
 
-        var genreMatches = poolTrailers
+        var evaluated = poolTrailers
             .Where(entry => !string.Equals(entry.TmdbMovieId.ToString(), featureTmdbId, StringComparison.Ordinal))
-            .Where(entry => GenreTools.MatchesAnchorGenre(entry.Genres, featureGenres))
+            .Select(entry => new EvaluatedTrailer(
+                entry,
+                GenreMatchEvaluator.Evaluate(entry.Genres, featureGenres)))
+            .ToList();
+        var anchorMatches = evaluated
+            .Where(candidate => candidate.Match.AnchorMatched)
+            .ToList();
+        var genreMatches = anchorMatches
+            .Where(candidate => candidate.Match.IsEligible)
             .ToList();
         var candidates = genreMatches
-            .Where(entry => File.Exists(Path.Combine(folder, entry.FileName)))
-            .OrderBy(_ => Random.Shared.Next())
+            .Where(candidate => File.Exists(Path.Combine(folder, candidate.Entry.FileName)))
+            .OrderByDescending(candidate => candidate.Match.SimilarityScore)
+            .ThenByDescending(candidate => candidate.Match.SharedGenreCount)
+            .ThenByDescending(candidate => candidate.Match.PrimaryGenreMatched)
+            .ThenBy(candidate => candidate.Match.CandidateOnlyGenreCount)
+            .ThenBy(_ => Random.Shared.Next())
             .ToList();
 
         var available = new List<AvailableTrailer>(candidates.Count);
-        foreach (var entry in candidates)
+        foreach (var candidate in candidates)
         {
+            var entry = candidate.Entry;
             var libraryItem = _hiddenLibrary.FindItem(folder, entry.FileName);
             if (libraryItem is not null)
             {
                 var userData = _userDataManager.GetUserData(user, libraryItem);
                 available.Add(new AvailableTrailer(
                     entry,
+                    candidate.Match,
                     libraryItem,
                     new IntroInfo { Path = libraryItem.Path, ItemId = libraryItem.Id },
                     userData?.Played == true));
@@ -110,6 +124,16 @@ public sealed class GenreTrailerIntroProvider : IIntroProvider
             {
                 _logger.LogDebug("Trailer Reel has not yet indexed {FileName}; it will not be queued", entry.FileName);
             }
+        }
+
+        foreach (var rejected in anchorMatches.Where(candidate => !candidate.Match.IsEligible))
+        {
+            _logger.LogDebug(
+                "Trailer Reel rejected {TrailerName} for {MovieName}: {Reason}; trailer genres [{TrailerGenres}]",
+                rejected.Entry.MovieName,
+                item.Name,
+                rejected.Match.RejectionReason,
+                string.Join(", ", rejected.Entry.Genres));
         }
 
         var selected = TrailerQueueSelector.Select(
@@ -160,7 +184,7 @@ public sealed class GenreTrailerIntroProvider : IIntroProvider
         }
 
         _logger.LogInformation(
-            "Trailer Reel queued {Count} anchor-genre {Pool} trailer(s) before {MovieName}: anchor {AnchorGenre}, feature genres [{FeatureGenres}], {CatalogCount} in pool, {GenreMatchCount} anchor-matched, {PresentCount} present, {IndexedCount} indexed, {WatchedCount} already watched by this user; selected {SelectedTrailers}",
+            "Trailer Reel queued {Count} profile-matched {Pool} trailer(s) before {MovieName}: anchor {AnchorGenre}, feature genres [{FeatureGenres}], {CatalogCount} in pool, {AnchorMatchCount} anchor-matched, {ProfileMatchCount} profile-compatible, {RejectedCount} rejected as off-theme, {PresentCount} present, {IndexedCount} indexed, {WatchedCount} already watched by this user; selected {SelectedTrailers}",
             intros.Count,
             animeFeature ? "anime" : "regular",
             item.Name,
@@ -171,19 +195,26 @@ public sealed class GenreTrailerIntroProvider : IIntroProvider
                     .Where(genre => !string.IsNullOrWhiteSpace(genre))
                     .Select(GenreTools.Canonicalize)),
             poolTrailers.Count,
+            anchorMatches.Count,
             genreMatches.Count,
+            anchorMatches.Count - genreMatches.Count,
             candidates.Count,
             available.Count,
             available.Count(candidate => candidate.Watched),
             string.Join(
                 "; ",
                 queued.Select(candidate =>
-                    $"{candidate.Entry.MovieName} [{string.Join(", ", candidate.Entry.Genres)}]")));
+                    $"{candidate.Entry.MovieName} [{string.Join(", ", candidate.Entry.Genres)}; similarity {candidate.Match.SimilarityScore / 10.0:F1}%]")));
         return intros;
     }
 
+    private sealed record EvaluatedTrailer(
+        TrailerEntry Entry,
+        GenreMatchEvaluation Match);
+
     private sealed record AvailableTrailer(
         TrailerEntry Entry,
+        GenreMatchEvaluation Match,
         BaseItem LibraryItem,
         IntroInfo Intro,
         bool Watched);

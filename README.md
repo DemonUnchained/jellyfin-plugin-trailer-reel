@@ -1,8 +1,8 @@
 # Trailer Reel for Jellyfin
 
-Trailer Reel is a Jellyfin 12.1 server plugin that maintains isolated local catalogs of recent and upcoming regular-movie and anime-movie trailers and inserts three same-genre trailers before a movie.
+Trailer Reel is a Jellyfin 12.2 server plugin that maintains isolated local catalogs of recent and upcoming regular-movie and anime-movie trailers and inserts up to three closely matched trailers before a movie.
 
-## What version 0.3.x does
+## What version 0.4.x does
 
 - Reads the genres already present on movies in the local Jellyfin database and separates movies belonging to the configured `Anime Movies` library.
 - Uses the TMDb API with locale `en-US`, region `US`, and U.S. limited/theatrical/digital release types.
@@ -18,15 +18,15 @@ Trailer Reel is a Jellyfin 12.1 server plugin that maintains isolated local cata
 - Names every downloaded file `Movie Name-trailer.ext` regardless of its pool.
 - Uses `Movie Name (Year)-trailer.ext`, then `Movie Name [tmdb-ID]-trailer.ext`, only when duplicate movie names would collide.
 - Creates a Jellyfin home-video library named `Trailer Reel (Internal)`, excludes it from users' My Media and Latest views, and indexes the downloaded files for playback.
-- Preserves the required `Movie Name-trailer.ext` files while creating relative symlink aliases under `TrailerReelIndex/` whose names Jellyfin 12.1 will index. The aliases consume no duplicate video space and resolve back to the originals during playback.
-- Implements Jellyfin's native `IIntroProvider` and returns up to three files from the correct pool that match the selected movie's first genre listed by Jellyfin.
+- Preserves the required `Movie Name-trailer.ext` files while creating relative symlink aliases under `TrailerReelIndex/` whose names Jellyfin 12.2 will index. The aliases consume no duplicate video space and resolve back to the originals during playback.
+- Implements Jellyfin's native `IIntroProvider` and returns up to three files from the correct pool that match the selected movie's anchor genre and overall genre profile.
 - Uses Jellyfin's per-user watched state so a trailer committed to one user's preroll queue is not selected for that user again; other users can still receive it.
 - Skips trailers when resuming a partially watched movie by default.
 - Never deletes an arbitrary file: cleanup is limited to filenames recorded in `.trailer-reel-catalog.json` inside the configured trailer folder.
 
 ## Requirements
 
-- Jellyfin Server **12.1.x**. This build targets Jellyfin ABI `12.1.0.0` and is compiled against the released Jellyfin 12.1.0 packages.
+- Jellyfin Server **12.2.x**. This build targets Jellyfin ABI `12.2.0.0` and is compiled against the released Jellyfin 12.2.0 packages.
 - A free TMDb API **read access token**.
 - `yt-dlp` and Deno available inside the Jellyfin container. The release includes a checksum-verifying Unraid installer for both tools.
 - `ffmpeg` available to `yt-dlp` inside the container. Most Jellyfin images already include Jellyfin FFmpeg, but its location may need to be set in the optional yt-dlp config.
@@ -37,17 +37,17 @@ The TMDb token is masked in the plugin page but Jellyfin stores plugin configura
 
 ## Manual installation
 
-1. Download the `trailer-reel_0.3.0.2-manual.zip` release asset and extract `TrailerReel_0.3.0.2` into Jellyfin's persistent `plugins` directory. The similarly named ZIP without `-manual` is the root-level package used by Jellyfin's plugin catalog and must not be extracted directly into the shared `plugins` directory.
+1. Download the `trailer-reel_0.4.0.0-manual.zip` release asset and extract `TrailerReel_0.4.0.0` into Jellyfin's persistent `plugins` directory. The similarly named ZIP without `-manual` is the root-level package used by Jellyfin's plugin catalog and must not be extracted directly into the shared `plugins` directory.
 2. Confirm this path exists inside the configuration volume:
 
    ```text
-   plugins/TrailerReel_0.3.0.2/Jellyfin.Plugin.TrailerReel.dll
+   plugins/TrailerReel_0.4.0.0/Jellyfin.Plugin.TrailerReel.dll
    ```
 
 3. If Jellyfin runs as a numeric Docker user, make the extracted directory owned by that same UID/GID before startup:
 
    ```bash
-   chown -R <jellyfin-uid>:<jellyfin-gid> /path/to/jellyfin/config/plugins/TrailerReel_0.3.0.2
+   chown -R <jellyfin-uid>:<jellyfin-gid> /path/to/jellyfin/config/plugins/TrailerReel_0.4.0.0
    ```
 
 4. Restart Jellyfin.
@@ -118,15 +118,17 @@ Only a fresh movie start requests trailers. Resuming is deliberately skipped, an
 
 ## How matching works
 
-Trailer Reel first asks Jellyfin which top-level library contains the selected movie. A movie in `Anime Movies` can use only the anime pool; a movie in every other library can use only the regular pool. It then uses the movie's first genre listed by Jellyfin as the queue's anchor genre. If Jellyfin lists `Horror`, `Fantasy`, and `Comedy`, every queued trailer must include `Horror`; a trailer matching only `Fantasy` or `Comedy` is rejected. `Sci-Fi`, `Sci Fi`, and `Science-Fiction` are normalized to TMDb's `Science Fiction`.
+Trailer Reel first asks Jellyfin which top-level library contains the selected movie. A movie in `Anime Movies` can use only the anime pool; a movie in every other library can use only the regular pool. It then uses the movie's first genre listed by Jellyfin as the queue's mandatory anchor genre. If Jellyfin lists `Horror`, `Thriller`, and `Fantasy`, every queued trailer must include `Horror`; a trailer matching only `Thriller` or `Fantasy` is rejected. `Sci-Fi`, `Sci Fi`, and `Science-Fiction` are normalized to TMDb's `Science Fiction`.
 
-Up to three unique anchor-genre candidates are selected randomly. A selected trailer is marked watched for the requesting Jellyfin user before it is returned, and future queues exclude watched trailer items for that user. A short 30-second cache keeps duplicate intro lookups from the same movie launch stable without creating a long repeat window.
+An anchor match is necessary but no longer sufficient. Version 0.4 rejects candidates whose genres are mostly outside the feature's profile, candidates that use the anchor only as a lone secondary overlap, and distinctive tone/style shifts such as `Animation`, `Comedy`, `Documentary`, `Family`, or `Music` when the feature does not have that genre. This prevents, for example, an animated or horror-comedy trailer from being placed before a straight live-action horror movie merely because both carry a `Horror` tag.
+
+Eligible candidates are ranked by whole-profile similarity, number of shared genres, primary-genre alignment, and fewest unmatched genres; randomness is used only to break equal-quality ties. Up to three unique candidates are returned. A selected trailer is marked watched for the requesting Jellyfin user before it is returned, and future queues exclude watched trailer items for that user. A short 30-second cache keeps duplicate intro lookups from the same movie launch stable without creating a long repeat window.
 
 This watched state is per Jellyfin profile. Trailer media is not deleted merely because one user saw it, so another profile can still receive it. Files are removed only by the managed catalog's date-window and cap cleanup. If a client fails after requesting its queue, those trailers still count as watched; this deliberate optimistic marking gives the strongest guarantee against repeats.
 
 Common local labels are normalized (`Anime` → `Animation`, `Kids` → `Family`, `Musical` → `Music`, and `Suspense` → `Thriller`). A custom local genre that has no TMDb movie-genre equivalent is reported in the Jellyfin log and cannot be used as a discovery category.
 
-If fewer than three indexed, unwatched anchor-genre trailers exist, the plugin returns only the matches it has. It does not fill the queue from the movie's secondary genres. The playback log reports the anchor genre, all feature genres, and the title and genres of every queued trailer.
+If fewer than three indexed, unwatched profile-compatible trailers exist, the plugin returns only the matches it has. It does not fill the queue with weaker or off-theme matches. The playback log reports the anchor genre, all feature genres, the number rejected as off-theme, and the title, genres, and similarity score of every queued trailer.
 
 ## Operational notes
 
@@ -136,7 +138,7 @@ If fewer than three indexed, unwatched anchor-genre trailers exist, the plugin r
 - Each refresh drops trailers for movies now hosted locally from the active catalog. When managed-file cleanup is enabled, it also deletes those catalog-managed trailer files.
 - `TrailerReelIndex/` contains only relative symlink aliases used to avoid Jellyfin's special handling of the `-trailer` suffix. Trailer Reel reconciles its own marked aliases on every refresh; deleting an alias does not delete the original video.
 - The hidden library is implementation plumbing: Jellyfin requires real library item IDs to construct playable media sources for intros.
-- This preview has been compiled against the released Jellyfin 12.1.0 packages, and its pool-isolation, anime-classification, selection, indexing, and naming tests pass on .NET 10. Exercise the anime pool with a low cap before allowing the full 30-file run.
+- This release has been compiled against the released Jellyfin 12.2.0 packages, and its pool-isolation, anime-classification, profile-matching, selection, indexing, and naming tests pass on .NET 10. Exercise the anime pool with a low cap before allowing the full 30-file run.
 
 ## Build
 

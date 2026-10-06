@@ -7,6 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Jellyfin.Plugin.TrailerReel/Jellyfin.Plugin.TrailerReel.csproj" />
-    <PackageReference Include="Jellyfin.Naming" Version="12.1.0" />
+    <PackageReference Include="Jellyfin.Naming" Version="12.2.0" />
   </ItemGroup>
 </Project>

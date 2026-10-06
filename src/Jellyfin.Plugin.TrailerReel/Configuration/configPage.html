@@ -97,7 +97,7 @@
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="TrailersBeforeMovie">Same-genre trailers before each movie</label>
                         <input id="TrailersBeforeMovie" type="number" min="1" max="10" is="emby-input">
-                        <div class="fieldDescription">Every queued trailer must match the movie's first genre listed by Jellyfin. If fewer unwatched matches exist, fewer trailers play instead of filling the queue from secondary genres.</div>
+                        <div class="fieldDescription">Every queued trailer must match the movie's first genre and pass a whole-profile compatibility check. Animation, comedy, family, documentary, and music shifts are rejected unless the movie has that genre. If fewer strong unwatched matches exist, fewer trailers play.</div>
                     </div>
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label class="emby-checkbox-label">
