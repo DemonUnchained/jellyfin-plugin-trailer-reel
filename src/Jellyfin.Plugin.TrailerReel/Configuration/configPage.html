@@ -44,6 +44,14 @@
                         </label>
                     </div>
 
+                    <h2>Genre coverage</h2>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="MinimumGenreTrailers">Target compatible trailers per genre profile</label>
+                        <input id="MinimumGenreTrailers" type="number" min="1" max="30" is="emby-input">
+                        <div class="fieldDescription">Defaults to 6. Refresh checks the actual genre profiles in each movie library using the playback matcher, searches for shortages, and replaces surplus stock even when a pool is full. The target adjusts to the pool cap and number of anchor genres; availability within the release window can limit coverage.</div>
+                    </div>
+                    <p class="fieldDescription">Coverage counts compatible, present and indexed trailers separately in the refresh log. Watched history remains per user; playback logs identify shortages caused by that user having seen every match. Full-pool replacements require managed-file deletion to be enabled.</p>
+
                     <h2>Anime movies</h2>
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label class="emby-checkbox-label">
@@ -137,7 +145,7 @@
                     'AvoidRepeatTrailersPerUser'
                 ];
                 const textIds = ['TmdbReadAccessToken', 'AnimeMovieLibraryName', 'TrailerFolderPath', 'YtDlpPath', 'YtDlpConfigPath'];
-                const integerIds = ['MonthsBack', 'MonthsAhead', 'MaxTrailers', 'MaxAnimeTrailers', 'TrailersBeforeMovie'];
+                const integerIds = ['MonthsBack', 'MonthsAhead', 'MaxTrailers', 'MaxAnimeTrailers', 'MinimumGenreTrailers', 'TrailersBeforeMovie'];
 
                 page.addEventListener('pageshow', function () {
                     Dashboard.showLoadingMsg();

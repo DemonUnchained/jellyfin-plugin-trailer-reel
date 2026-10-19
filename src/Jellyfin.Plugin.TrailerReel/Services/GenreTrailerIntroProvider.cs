@@ -205,6 +205,17 @@ public sealed class GenreTrailerIntroProvider : IIntroProvider
                 "; ",
                 queued.Select(candidate =>
                     $"{candidate.Entry.MovieName} [{string.Join(", ", candidate.Entry.Genres)}; similarity {candidate.Match.SimilarityScore / 10.0:F1}%]")));
+        if (intros.Count < config.TrailersBeforeMovie)
+        {
+            _logger.LogWarning(
+                "Trailer Reel coverage shortfall before {MovieName} in {Pool} pool: queued {Queued}/{Requested}; {Reason}. Indexed compatible: {Indexed}; unwatched for this user: {Unwatched}",
+                item.Name, animeFeature ? "anime" : "regular", intros.Count, config.TrailersBeforeMovie,
+                PlaybackStockDiagnostics.ExplainShortage(anchorGenre, anchorMatches.Count, genreMatches.Count,
+                    candidates.Count, available.Count, available.Count(candidate => !candidate.Watched),
+                    config.TrailersBeforeMovie, config.AvoidRepeatTrailersPerUser),
+                available.Count, available.Count(candidate => !candidate.Watched));
+        }
+
         return intros;
     }
 

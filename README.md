@@ -2,13 +2,15 @@
 
 Trailer Reel is a Jellyfin 12.2 server plugin that maintains isolated local catalogs of recent and upcoming regular-movie and anime-movie trailers and inserts up to three closely matched trailers before a movie.
 
-## What version 0.4.x does
+## What version 0.4.1 does
 
 - Reads the genres already present on movies in the local Jellyfin database and separates movies belonging to the configured `Anime Movies` library.
 - Uses the TMDb API with locale `en-US`, region `US`, and U.S. limited/theatrical/digital release types.
 - Requires both the movie's primary release date and the returned U.S. release date to fall inside the configured window, preventing old theatrical re-releases from cycling through the catalog.
 - Recalculates the discovery window on every refresh: two months before today through six months after today by default.
-- Selects candidates round-robin across the local genres so one popular genre does not consume the entire catalog.
+- Validates coverage against the actual ordered genre profiles of local movies using the same strict matcher as playback.
+- Prioritizes compatible stock for underrepresented profiles and searches up to ten TMDb pages per genre within the current release window.
+- Rebalances full pools by replacing surplus trailers only after acquiring a compatible replacement; scarce coverage in other profiles is protected.
 - Discovers a dedicated anime pool using TMDb's Animation genre together with Japanese original-language and Japan-origin filters.
 - Caps the regular pool at 100 files and the anime pool at 30 files by default.
 - Returns anime trailers only for movies in the configured anime-movie library; ordinary movies can use only the regular pool.
@@ -37,17 +39,17 @@ The TMDb token is masked in the plugin page but Jellyfin stores plugin configura
 
 ## Manual installation
 
-1. Download the `trailer-reel_0.4.0.0-manual.zip` release asset and extract `TrailerReel_0.4.0.0` into Jellyfin's persistent `plugins` directory. The similarly named ZIP without `-manual` is the root-level package used by Jellyfin's plugin catalog and must not be extracted directly into the shared `plugins` directory.
+1. Download the `trailer-reel_0.4.1.0-manual.zip` release asset and extract `TrailerReel_0.4.1.0` into Jellyfin's persistent `plugins` directory. The similarly named ZIP without `-manual` is the root-level package used by Jellyfin's plugin catalog and must not be extracted directly into the shared `plugins` directory.
 2. Confirm this path exists inside the configuration volume:
 
    ```text
-   plugins/TrailerReel_0.4.0.0/Jellyfin.Plugin.TrailerReel.dll
+   plugins/TrailerReel_0.4.1.0/Jellyfin.Plugin.TrailerReel.dll
    ```
 
 3. If Jellyfin runs as a numeric Docker user, make the extracted directory owned by that same UID/GID before startup:
 
    ```bash
-   chown -R <jellyfin-uid>:<jellyfin-gid> /path/to/jellyfin/config/plugins/TrailerReel_0.4.0.0
+   chown -R <jellyfin-uid>:<jellyfin-gid> /path/to/jellyfin/config/plugins/TrailerReel_0.4.1.0
    ```
 
 4. Restart Jellyfin.
@@ -97,6 +99,7 @@ Replace `jellyfin` if the container has a different name.
    - Separate anime-movie trailer pool: enabled
    - Anime movie library name: `Anime Movies`
    - Maximum anime-movie trailer files: `30`
+   - Target compatible trailers per genre profile: `6` (adjusted to fit the pool cap)
    - Trailers before each movie: `3`
    - Region/language: fixed at `US` / `en-US`
    - Exact 1080p: enabled
@@ -124,11 +127,27 @@ An anchor match is necessary but no longer sufficient. Version 0.4 rejects candi
 
 Eligible candidates are ranked by whole-profile similarity, number of shared genres, primary-genre alignment, and fewest unmatched genres; randomness is used only to break equal-quality ties. Up to three unique candidates are returned. A selected trailer is marked watched for the requesting Jellyfin user before it is returned, and future queues exclude watched trailer items for that user. A short 30-second cache keeps duplicate intro lookups from the same movie launch stable without creating a long repeat window.
 
-This watched state is per Jellyfin profile. Trailer media is not deleted merely because one user saw it, so another profile can still receive it. Files are removed only by the managed catalog's date-window and cap cleanup. If a client fails after requesting its queue, those trailers still count as watched; this deliberate optimistic marking gives the strongest guarantee against repeats.
+This watched state is per Jellyfin profile. Trailer media is not deleted merely because one user saw it, so another profile can still receive it. Files are removed by managed eligibility/cap cleanup and by successful replacements that improve genre coverage. If a client fails after requesting its queue, those trailers still count as watched; this deliberate optimistic marking gives the strongest guarantee against repeats.
 
 Common local labels are normalized (`Anime` → `Animation`, `Kids` → `Family`, `Musical` → `Music`, and `Suspense` → `Thriller`). A custom local genre that has no TMDb movie-genre equivalent is reported in the Jellyfin log and cannot be used as a discovery category.
 
 If fewer than three indexed, unwatched profile-compatible trailers exist, the plugin returns only the matches it has. It does not fill the queue with weaker or off-theme matches. The playback log reports the anchor genre, all feature genres, the number rejected as off-theme, and the title, genres, and similarity score of every queued trailer.
+
+## Genre coverage validation
+
+A full catalog can still contain no usable trailers for a particular movie. A `Horror` tag on an animated or comedic trailer does not make it compatible with a straight horror feature. Refresh therefore builds a separate set of actual local movie profiles for each pool, preserving the first/anchor genre, and runs `GenreMatchEvaluator` for every stock/profile pairing.
+
+The new **Target compatible trailers per genre profile** setting defaults to six. For each pool, the effective reserve is the smaller of `max(configured target, trailers per queue)` and `max(1, pool cap / distinct local anchor genres)`. This gives rare anchor genres a fair reserve without raising the 100 regular / 30 anime caps. Several profiles can share the same stock. The reserve is best effort; the configured date window, strict matching, local-movie exclusions, official sources, and exact-1080p availability still apply.
+
+Each acquisition is ranked by the remaining deficits, with each anchor genre given equal weight across its local profiles. At capacity, a replacement must improve at least one profile's reserve and preserve every other profile's existing coverage up to its target. The replacement is downloaded first, then the changed catalog is saved, and only then is the old managed media removed. Failed acquisition preserves the old stock; failed catalog saving restores it and discards the new download. One replacement download can temporarily coexist with the old file while that transaction completes. Disabling managed-file deletion prevents replacements in a full pool.
+
+The first search includes all mapped local genres. Later pages focus on deficient anchors, or continue filling an underfull pool, with limits of ten pages per genre and five acquisition attempts per available catalog slot. Pagination follows TMDb's `total_pages`, so a page emptied by release-date filtering does not incorrectly end the search. Anime shortage queries require both Animation and the target genre, plus the existing Japanese language/origin filters.
+
+After indexing, refresh logs each anchor genre's minimum compatible, present and indexed counts across its local profiles. It also writes `.trailer-reel-coverage.json` in the configured trailer folder, containing the target and counts for every profile, including unresolved shortages. A completed refresh can still have a shortage; the report does not claim that unavailable trailers were acquired.
+
+This report measures shared stock. Per-user watched filtering is applied at playback and is not reset by balancing. A short queue now gets an explicit log reason: missing anchor stock, rejected profiles, missing files, unindexed files, exhausted watched history, or insufficient remaining matches. If a user has watched every compatible trailer, the plugin continues to return fewer trailers; it never substitutes off-theme or already-watched trailers to satisfy the target.
+
+After upgrading from 0.4.0.0, run **Download/refresh Trailer Reel** once to validate and rebalance the existing catalog. Subsequent daily refreshes repeat the validation.
 
 ## Operational notes
 
@@ -138,7 +157,7 @@ If fewer than three indexed, unwatched profile-compatible trailers exist, the pl
 - Each refresh drops trailers for movies now hosted locally from the active catalog. When managed-file cleanup is enabled, it also deletes those catalog-managed trailer files.
 - `TrailerReelIndex/` contains only relative symlink aliases used to avoid Jellyfin's special handling of the `-trailer` suffix. Trailer Reel reconciles its own marked aliases on every refresh; deleting an alias does not delete the original video.
 - The hidden library is implementation plumbing: Jellyfin requires real library item IDs to construct playable media sources for intros.
-- This release has been compiled against the released Jellyfin 12.2.0 packages, and its pool-isolation, anime-classification, profile-matching, selection, indexing, and naming tests pass on .NET 10. Exercise the anime pool with a low cap before allowing the full 30-file run.
+- This release has been compiled against the released Jellyfin 12.2.0 packages, and its pool-isolation, anime-classification, profile-matching, coverage/replacement, discovery-pagination, selection, indexing, and naming tests pass on .NET 10. Exercise the anime pool with a low cap before allowing the full 30-file run.
 
 ## Build
 

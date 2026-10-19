@@ -42,7 +42,7 @@ public sealed class TmdbClient
         CancellationToken cancellationToken)
     {
         var parameters = CreateRegularDiscoveryParameters(genreId, start, end, page, config);
-        return await DiscoverMoviesAsync(parameters, start, end, config, cancellationToken).ConfigureAwait(false);
+        return (await DiscoverPageAsync(parameters, start, end, config, cancellationToken).ConfigureAwait(false)).Movies;
     }
 
     public async Task<IReadOnlyList<MovieCandidate>> DiscoverAnimeMoviesAsync(
@@ -53,7 +53,22 @@ public sealed class TmdbClient
         CancellationToken cancellationToken)
     {
         var parameters = CreateAnimeDiscoveryParameters(start, end, page, config);
-        return await DiscoverMoviesAsync(parameters, start, end, config, cancellationToken).ConfigureAwait(false);
+        return (await DiscoverPageAsync(parameters, start, end, config, cancellationToken).ConfigureAwait(false)).Movies;
+    }
+
+    public Task<MovieDiscoveryPage> DiscoverGenrePageAsync(
+        int genreId,
+        TrailerPool pool,
+        DateOnly start,
+        DateOnly end,
+        int page,
+        PluginConfiguration config,
+        CancellationToken cancellationToken)
+    {
+        var parameters = pool == TrailerPool.Anime
+            ? CreateAnimeDiscoveryParameters(start, end, page, config, genreId)
+            : CreateRegularDiscoveryParameters(genreId, start, end, page, config);
+        return DiscoverPageAsync(parameters, start, end, config, cancellationToken);
     }
 
     internal static Dictionary<string, string> CreateRegularDiscoveryParameters(
@@ -72,10 +87,13 @@ public sealed class TmdbClient
         DateOnly start,
         DateOnly end,
         int page,
-        PluginConfiguration config)
+        PluginConfiguration config,
+        int? genreId = null)
     {
         var parameters = CreateDiscoveryParameters(start, end, page, config);
-        parameters["with_genres"] = AnimeMovieRules.AnimationGenreId.ToString(CultureInfo.InvariantCulture);
+        parameters["with_genres"] = genreId.HasValue && genreId.Value != AnimeMovieRules.AnimationGenreId
+            ? $"{AnimeMovieRules.AnimationGenreId},{genreId.Value.ToString(CultureInfo.InvariantCulture)}"
+            : AnimeMovieRules.AnimationGenreId.ToString(CultureInfo.InvariantCulture);
         parameters["with_original_language"] = "ja";
         parameters["with_origin_country"] = "JP";
         return parameters;
@@ -103,7 +121,7 @@ public sealed class TmdbClient
             ["primary_release_date.lte"] = end.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
         };
 
-    private async Task<IReadOnlyList<MovieCandidate>> DiscoverMoviesAsync(
+    private async Task<MovieDiscoveryPage> DiscoverPageAsync(
         IReadOnlyDictionary<string, string> parameters,
         DateOnly start,
         DateOnly end,
@@ -138,7 +156,9 @@ public sealed class TmdbClient
             });
         }
 
-        return results;
+        var page = int.Parse(parameters["page"], CultureInfo.InvariantCulture);
+        // Filtering can empty a page even though subsequent TMDb pages have valid candidates.
+        return new MovieDiscoveryPage(results, page < response.TotalPages);
     }
 
     public async Task<TrailerVideo?> GetBestTrailerAsync(
@@ -214,6 +234,9 @@ public sealed class TmdbClient
 
     private sealed class DiscoverResponse
     {
+        [JsonPropertyName("total_pages")]
+        public int TotalPages { get; set; }
+
         [JsonPropertyName("results")]
         public List<MovieDto> Results { get; set; } = [];
     }
@@ -272,3 +295,5 @@ public sealed class TmdbClient
         public DateTimeOffset? PublishedUtc { get; set; }
     }
 }
+
+public sealed record MovieDiscoveryPage(IReadOnlyList<MovieCandidate> Movies, bool HasMore);

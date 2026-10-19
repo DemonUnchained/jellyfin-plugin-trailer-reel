@@ -67,7 +67,7 @@ rm -f "$source_zip"
 (
     cd "$repo_dir/.."
     zip -qr "$source_zip" "$(basename "$repo_dir")" \
-        -x '*/dist/*' '*/bin/*' '*/obj/*' '*/.git/*'
+        -x '*/dist/*' '*/bin/*' '*/obj/*' '*/.git/*' '*/.git'
 )
 
 rm -f "$checksum_file"

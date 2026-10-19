@@ -16,6 +16,8 @@ public sealed class PluginConfiguration : BasePluginConfiguration
 
     public int MaxTrailers { get; set; } = 100;
 
+    public int MinimumGenreTrailers { get; set; } = 6;
+
     public bool EnableAnimeMovieTrailers { get; set; } = true;
 
     public string AnimeMovieLibraryName { get; set; } = "Anime Movies";

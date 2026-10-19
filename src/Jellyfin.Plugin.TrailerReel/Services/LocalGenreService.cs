@@ -70,7 +70,9 @@ public sealed class LocalGenreService
             new LocalMovieInventory(genres, tmdbMovieIds, fallbackTitleYears),
             CanonicalGenres(regularGenres),
             CanonicalGenres(animeGenres),
-            animeLibraryFound);
+            animeLibraryFound,
+            LocalGenreProfile.Create(movies.Where(movie => !animeMovies.Contains(movie)).Select(movie => movie.Genres ?? [])),
+            LocalGenreProfile.Create(animeMovies.Select(movie => movie.Genres ?? [])));
     }
 
     public bool IsInLibrary(BaseItem item, string libraryName)
@@ -112,4 +114,6 @@ public sealed record LocalMovieContext(
     LocalMovieInventory AllMovies,
     IReadOnlyList<string> RegularGenres,
     IReadOnlyList<string> AnimeGenres,
-    bool AnimeLibraryFound);
+    bool AnimeLibraryFound,
+    IReadOnlyList<LocalGenreProfile> RegularProfiles,
+    IReadOnlyList<LocalGenreProfile> AnimeProfiles);

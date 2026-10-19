@@ -7,10 +7,11 @@ using MediaBrowser.Model.Entities;
 using Microsoft.Extensions.Logging.Abstractions;
 
 var failures = new List<string>();
+var checks = 0;
 
 Check(
-    "assembly version is 0.4.0.0",
-    typeof(PluginConfiguration).Assembly.GetName().Version == new Version(0, 4, 0, 0));
+    "assembly version is 0.4.1.0",
+    typeof(PluginConfiguration).Assembly.GetName().Version == new Version(0, 4, 1, 0));
 
 Check(
     "genre aliases overlap",
@@ -75,6 +76,8 @@ Check(
     !GenreMatchEvaluator.Evaluate(
         ["Horror", "Science Fiction", "Adventure"],
         ["Horror", "Thriller", "Fantasy"]).IsEligible);
+
+await GenreCoverageTests.RunAsync(Check);
 
 var defaultConfig = new PluginConfiguration();
 Check("anime trailer pool is enabled by default", defaultConfig.EnableAnimeMovieTrailers);
@@ -290,11 +293,12 @@ if (failures.Count > 0)
     return 1;
 }
 
-Console.WriteLine("All Trailer Reel tests passed.");
+Console.WriteLine($"All Trailer Reel tests passed ({checks} checks).");
 return 0;
 
 void Check(string name, bool condition)
 {
+    checks++;
     if (!condition)
     {
         failures.Add("FAILED: " + name);
