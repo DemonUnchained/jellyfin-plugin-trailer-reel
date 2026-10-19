@@ -22,6 +22,11 @@ jobs:
           dotnet-version: 10.0.x
       - name: Build, test, and package
         run: bash ./build.sh
+      - name: Verify trailer format selection offline
+        shell: bash
+        run: |
+          python3 -m pip install --disable-pip-version-check --no-deps --target "$RUNNER_TEMP/trailer-format-tests" yt-dlp==2026.08.19
+          PYTHONPATH="$RUNNER_TEMP/trailer-format-tests" python3 tests/Jellyfin.Plugin.TrailerReel.Tests/format_selection_test.py
       - uses: actions/upload-artifact@v5
         with:
           name: TrailerReel

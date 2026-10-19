@@ -385,7 +385,7 @@ public sealed class TrailerCatalogRefreshService
             if (shortages > 0 && (pool.Pool == TrailerPool.Regular || config.EnableAnimeMovieTrailers))
             {
                 _logger.LogWarning(
-                    "Trailer Reel {Pool} coverage remains below target for {Shortages} local profile(s); see {Report}. Discovery respects the pool cap, release window, local exclusions, exact-1080p policy and strict matching. Managed-file deletion enabled: {DeletionEnabled}",
+                    "Trailer Reel {Pool} coverage remains below target for {Shortages} local profile(s); see {Report}. Discovery respects the pool cap, release window, local exclusions, Full HD quality policy and strict matching. Managed-file deletion enabled: {DeletionEnabled}",
                     pool.Pool, shortages, GenreCoverageReport.FileName, config.DeleteExpiredManagedTrailers);
             }
         }

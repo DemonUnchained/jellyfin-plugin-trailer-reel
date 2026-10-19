@@ -100,7 +100,7 @@ Open **Jellyfin Dashboard → Plugins → Trailer Reel** and set:
 | Anime movie library name | `Anime Movies` |
 | Maximum anime-movie trailers | `30` |
 | Trailers before movie | `3` |
-| Exact 1080p | Enabled |
+| Require Full HD (1080p) quality | Enabled |
 | Do not repeat trailers for the same Jellyfin user | Enabled |
 
 For the first anime test, set **Maximum anime-movie trailer files** to `3` or `5`. Run **Dashboard → Scheduled Tasks → Download/refresh Trailer Reel**, then start a movie from the `Anime Movies` library. Those anime trailers must not appear before a movie from `Movies`. Raise the anime cap to `30` after confirming the isolation behavior.

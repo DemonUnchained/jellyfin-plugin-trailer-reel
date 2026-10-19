@@ -16,7 +16,7 @@ Trailer Reel is a Jellyfin 12.2 server plugin that maintains isolated local cata
 - Returns anime trailers only for movies in the configured anime-movie library; ordinary movies can use only the regular pool.
 - Excludes movies already hosted in Jellyfin, matching by TMDb ID and falling back to normalized title/year when a local movie has no TMDb ID.
 - Chooses official YouTube trailers listed by TMDb.
-- Calls a user-supplied `yt-dlp` executable and requires an exact 1080p format by default.
+- Calls a user-supplied `yt-dlp` executable and requires Full HD (1080p) quality by default, including widescreen 1920×960 and 1920×800 uploads.
 - Names every downloaded file `Movie Name-trailer.ext` regardless of its pool.
 - Uses `Movie Name (Year)-trailer.ext`, then `Movie Name [tmdb-ID]-trailer.ext`, only when duplicate movie names would collide.
 - Creates a Jellyfin home-video library named `Trailer Reel (Internal)`, excludes it from users' My Media and Latest views, and indexes the downloaded files for playback.
@@ -102,7 +102,7 @@ Replace `jellyfin` if the container has a different name.
    - Target compatible trailers per genre profile: `6` (adjusted to fit the pool cap)
    - Trailers before each movie: `3`
    - Region/language: fixed at `US` / `en-US`
-   - Exact 1080p: enabled
+   - Require Full HD (1080p) quality: enabled
    - Official trailers only: enabled
 
 5. Save.
@@ -137,7 +137,7 @@ If fewer than three indexed, unwatched profile-compatible trailers exist, the pl
 
 A full catalog can still contain no usable trailers for a particular movie. A `Horror` tag on an animated or comedic trailer does not make it compatible with a straight horror feature. Refresh therefore builds a separate set of actual local movie profiles for each pool, preserving the first/anchor genre, and runs `GenreMatchEvaluator` for every stock/profile pairing.
 
-The new **Target compatible trailers per genre profile** setting defaults to six. For each pool, the effective reserve is the smaller of `max(configured target, trailers per queue)` and `max(1, pool cap / distinct local anchor genres)`. This gives rare anchor genres a fair reserve without raising the 100 regular / 30 anime caps. Several profiles can share the same stock. The reserve is best effort; the configured date window, strict matching, local-movie exclusions, official sources, and exact-1080p availability still apply.
+The new **Target compatible trailers per genre profile** setting defaults to six. For each pool, the effective reserve is the smaller of `max(configured target, trailers per queue)` and `max(1, pool cap / distinct local anchor genres)`. This gives rare anchor genres a fair reserve without raising the 100 regular / 30 anime caps. Several profiles can share the same stock. The reserve is best effort; the configured date window, strict matching, local-movie exclusions, official sources, and Full HD availability still apply.
 
 Each acquisition is ranked by the remaining deficits, with each anchor genre given equal weight across its local profiles. At capacity, a replacement must improve at least one profile's reserve and preserve every other profile's existing coverage up to its target. The replacement is downloaded first, then the changed catalog is saved, and only then is the old managed media removed. Failed acquisition preserves the old stock; failed catalog saving restores it and discards the new download. One replacement download can temporarily coexist with the old file while that transaction completes. Disabling managed-file deletion prevents replacements in a full pool.
 
@@ -154,7 +154,7 @@ After upgrading from 0.4.0.0, run **Download/refresh Trailer Reel** once to vali
 - Downloading up to 100 regular trailers plus 30 anime trailers can take a long time and may trigger source-site rate limits. Downloads are intentionally serial.
 - Each movie can try up to three distinct eligible trailer uploads in ranked order. An upload that needs age verification or has no format matching the quality policy is skipped; the next eligible upload is tried before moving on to another movie. All source attempts also share the existing per-pool acquisition budget.
 - Expected age/format skips are counted in one summary per pool rather than logged as exception stacks. Individual rejected upload IDs are available at Debug level. Format failures with extraction/runtime warnings produce one separate warning per pool; they do not prove that the source lacks 1080p.
-- Exact 1080p remains enforced when enabled. Authentication is optional and is supplied only through the existing yt-dlp config; Trailer Reel does not collect browser cookies or alter account settings.
+- Full HD remains required when enabled: video must be 1080 pixels high or 1920 pixels wide, with both dimensions inside a 1920×1080 frame. This accepts widescreen Full HD uploads without black bars and excludes 720p, 1440p, and 4K. The existing `RequireExact1080p` configuration key is retained, so saved settings continue to work. Authentication is optional and is supplied only through the existing yt-dlp config; Trailer Reel does not collect browser cookies or alter account settings.
 - The plugin does not download a second copy of a TMDb movie already present in its catalog.
 - Each refresh drops trailers for movies now hosted locally from the active catalog. When managed-file cleanup is enabled, it also deletes those catalog-managed trailer files.
 - `TrailerReelIndex/` contains only relative symlink aliases used to avoid Jellyfin's special handling of the `-trailer` suffix. Trailer Reel reconciles its own marked aliases on every refresh; deleting an alias does not delete the original video.
@@ -168,6 +168,8 @@ After upgrading from 0.4.0.0, run **Download/refresh Trailer Reel** once to vali
 ```bash
 bash ./build.sh
 ```
+
+CI also runs `tests/Jellyfin.Plugin.TrailerReel.Tests/format_selection_test.py` against yt-dlp 2026.08.19. These offline checks exercise the production format selectors with standard and cropped Full HD, lower resolutions, higher resolutions, audio requirements, and unknown dimensions. Socket connections are blocked during the checks.
 
 The script restores packages, builds Release, runs the lightweight test executable, and writes three ZIP assets plus a checksum file to `dist/`: a root-level runtime ZIP for Jellyfin's plugin catalog, a full `-manual.zip` bundle with one enclosing plugin directory, and a source ZIP.
 
