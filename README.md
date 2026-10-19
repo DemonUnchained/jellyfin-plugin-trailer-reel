@@ -39,17 +39,17 @@ The TMDb token is masked in the plugin page but Jellyfin stores plugin configura
 
 ## Manual installation
 
-1. Download the `trailer-reel_0.4.1.0-manual.zip` release asset and extract `TrailerReel_0.4.1.0` into Jellyfin's persistent `plugins` directory. The similarly named ZIP without `-manual` is the root-level package used by Jellyfin's plugin catalog and must not be extracted directly into the shared `plugins` directory.
+1. Download the `trailer-reel_0.4.1.1-manual.zip` release asset and extract `TrailerReel_0.4.1.1` into Jellyfin's persistent `plugins` directory. The similarly named ZIP without `-manual` is the root-level package used by Jellyfin's plugin catalog and must not be extracted directly into the shared `plugins` directory.
 2. Confirm this path exists inside the configuration volume:
 
    ```text
-   plugins/TrailerReel_0.4.1.0/Jellyfin.Plugin.TrailerReel.dll
+   plugins/TrailerReel_0.4.1.1/Jellyfin.Plugin.TrailerReel.dll
    ```
 
 3. If Jellyfin runs as a numeric Docker user, make the extracted directory owned by that same UID/GID before startup:
 
    ```bash
-   chown -R <jellyfin-uid>:<jellyfin-gid> /path/to/jellyfin/config/plugins/TrailerReel_0.4.1.0
+   chown -R <jellyfin-uid>:<jellyfin-gid> /path/to/jellyfin/config/plugins/TrailerReel_0.4.1.1
    ```
 
 4. Restart Jellyfin.
@@ -152,7 +152,9 @@ After upgrading from 0.4.0.0, run **Download/refresh Trailer Reel** once to vali
 ## Operational notes
 
 - Downloading up to 100 regular trailers plus 30 anime trailers can take a long time and may trigger source-site rate limits. Downloads are intentionally serial.
-- A failed exact-1080p candidate is skipped and the task tries another candidate.
+- Each movie can try up to three distinct eligible trailer uploads in ranked order. An upload that needs age verification or has no format matching the quality policy is skipped; the next eligible upload is tried before moving on to another movie. All source attempts also share the existing per-pool acquisition budget.
+- Expected age/format skips are counted in one summary per pool rather than logged as exception stacks. Individual rejected upload IDs are available at Debug level. Format failures with extraction/runtime warnings produce one separate warning per pool; they do not prove that the source lacks 1080p.
+- Exact 1080p remains enforced when enabled. Authentication is optional and is supplied only through the existing yt-dlp config; Trailer Reel does not collect browser cookies or alter account settings.
 - The plugin does not download a second copy of a TMDb movie already present in its catalog.
 - Each refresh drops trailers for movies now hosted locally from the active catalog. When managed-file cleanup is enabled, it also deletes those catalog-managed trailer files.
 - `TrailerReelIndex/` contains only relative symlink aliases used to avoid Jellyfin's special handling of the `-trailer` suffix. Trailer Reel reconciles its own marked aliases on every refresh; deleting an alias does not delete the original video.

@@ -53,7 +53,6 @@ public sealed class YtDlpDownloader
 
             startInfo.ArgumentList.Add("--no-playlist");
             startInfo.ArgumentList.Add("--quiet");
-            startInfo.ArgumentList.Add("--no-warnings");
             startInfo.ArgumentList.Add("--print");
             startInfo.ArgumentList.Add("after_move:filepath");
             startInfo.ArgumentList.Add("--format");
@@ -91,6 +90,11 @@ public sealed class YtDlpDownloader
 
             if (process.ExitCode != 0)
             {
+                if (TrailerSourceRejectedException.FromYtDlpError(stderr) is { } rejection)
+                {
+                    throw rejection;
+                }
+
                 throw new InvalidOperationException(
                     $"yt-dlp exited with code {process.ExitCode}: {LastUsefulLine(stderr)}");
             }

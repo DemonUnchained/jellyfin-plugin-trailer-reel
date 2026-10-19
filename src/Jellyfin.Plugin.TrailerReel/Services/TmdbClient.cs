@@ -164,13 +164,19 @@ public sealed class TmdbClient
     public async Task<TrailerVideo?> GetBestTrailerAsync(
         int movieId,
         PluginConfiguration config,
+        CancellationToken cancellationToken) =>
+        (await GetTrailerCandidatesAsync(movieId, config, cancellationToken).ConfigureAwait(false)).FirstOrDefault();
+
+    public async Task<IReadOnlyList<TrailerVideo>> GetTrailerCandidatesAsync(
+        int movieId,
+        PluginConfiguration config,
         CancellationToken cancellationToken)
     {
         var localizedPath = $"movie/{movieId.ToString(CultureInfo.InvariantCulture)}/videos?language={Uri.EscapeDataString(config.Language)}";
         var localized = await GetAsync<VideoListResponse>(localizedPath, config, cancellationToken).ConfigureAwait(false);
         var all = localized.Results.ToList();
 
-        if (!all.Any(IsTrailerCandidate))
+        if (!all.Any(video => IsTrailerCandidate(video) && (!config.OfficialTrailersOnly || video.Official)))
         {
             var fallbackPath = $"movie/{movieId.ToString(CultureInfo.InvariantCulture)}/videos";
             var fallback = await GetAsync<VideoListResponse>(fallbackPath, config, cancellationToken).ConfigureAwait(false);
@@ -193,7 +199,7 @@ public sealed class TmdbClient
                 video.Type,
                 video.Size,
                 video.PublishedUtc))
-            .FirstOrDefault();
+            .ToList();
     }
 
     private static bool IsTrailerCandidate(VideoDto video) =>
