@@ -230,6 +230,10 @@ public sealed class TrailerCatalogRefreshService
         var seen = catalog.Trailers.Select(entry => entry.TmdbMovieId).ToHashSet();
         var exhaustedGenres = new HashSet<int>();
         var attempts = 0;
+        var uploadAttempts = 0;
+        var formatSkips = 0;
+        var ageRestrictedSkips = 0;
+        var extractionWarnings = 0;
         var attemptLimit = planner.Maximum * DiscoveryCandidateMultiplier;
         var initial = catalog.Trailers.Where(entry => entry.Pool == pool).ToList();
         _logger.LogInformation(
@@ -238,7 +242,7 @@ public sealed class TrailerCatalogRefreshService
             string.Join(", ", planner.DeficientAnchors(initial).OrderBy(name => name)));
 
         // Initial discovery includes every local genre. Later pages focus on remaining shortages.
-        for (var page = 1; page <= MaximumDiscoveryPages && attempts < attemptLimit; page++)
+        for (var page = 1; page <= MaximumDiscoveryPages && attempts < attemptLimit && uploadAttempts < attemptLimit; page++)
         {
             var current = catalog.Trailers.Where(entry => entry.Pool == pool).ToList();
             var deficientAnchors = planner.DeficientAnchors(current);
@@ -292,22 +296,49 @@ public sealed class TrailerCatalogRefreshService
                 catalog, pool, planner, candidates, config.DeleteExpiredManagedTrailers,
                 async (entry, token) =>
                 {
-                    if (attempts >= attemptLimit)
+                    if (attempts >= attemptLimit || uploadAttempts >= attemptLimit)
                     {
                         return false;
                     }
 
                     attempts++;
-                    var trailer = await _tmdbClient.GetBestTrailerAsync(entry.TmdbMovieId, config, token).ConfigureAwait(false);
-                    if (trailer is null)
+                    var trailers = await _tmdbClient.GetTrailerCandidatesAsync(entry.TmdbMovieId, config, token).ConfigureAwait(false);
+                    var acquired = await TrailerSourceAcquirer.TryAcquireAsync(
+                        trailers.Take(attemptLimit - uploadAttempts).ToArray(),
+                        (video, sourceToken) =>
+                        {
+                            uploadAttempts++;
+                            return _downloader.DownloadAsync(
+                                entry.TmdbMovieId, entry.MovieName, entry.Year, video.Key, folder, config,
+                                catalog.Trailers.Select(existing => existing.FileName).ToArray(), sourceToken);
+                        },
+                        (video, rejection) =>
+                        {
+                            if (rejection.Reason == TrailerSourceRejection.AgeRestricted)
+                            {
+                                ageRestrictedSkips++;
+                            }
+                            else
+                            {
+                                formatSkips++;
+                            }
+
+                            if (rejection.ExtractionWarning)
+                            {
+                                extractionWarnings++;
+                            }
+
+                            _logger.LogDebug(
+                                "Trailer Reel skipped upload {YoutubeKey} for {MovieName}: {Reason}; trying another eligible trailer when available",
+                                video.Key, entry.MovieName, rejection.Message);
+                        }, token).ConfigureAwait(false);
+                    if (acquired is null)
                     {
                         return false;
                     }
 
-                    entry.YoutubeKey = trailer.Key;
-                    entry.FileName = await _downloader.DownloadAsync(
-                        entry.TmdbMovieId, entry.MovieName, entry.Year, trailer.Key, folder, config,
-                        catalog.Trailers.Select(existing => existing.FileName).ToArray(), token).ConfigureAwait(false);
+                    entry.YoutubeKey = acquired.Video.Key;
+                    entry.FileName = acquired.FileName;
                     entry.DownloadedUtc = DateTimeOffset.UtcNow;
                     return true;
                 },
@@ -324,8 +355,17 @@ public sealed class TrailerCatalogRefreshService
         }
 
         _logger.LogInformation(
-            "Trailer Reel {Pool} discovery finished after {Attempts}/{Limit} acquisition attempts (up to {Pages} pages per genre)",
-            pool, attempts, attemptLimit, MaximumDiscoveryPages);
+            "Trailer Reel {Pool} discovery finished after {Attempts}/{Limit} movie acquisition attempts and {UploadAttempts}/{UploadLimit} upload attempts (up to {Pages} pages per genre)",
+            pool, attempts, attemptLimit, uploadAttempts, attemptLimit, MaximumDiscoveryPages);
+        _logger.LogInformation(
+            "Trailer Reel {Pool} upload skips: {FormatSkips} requested-format unavailable, {AgeSkips} age-restricted; tried up to {SourceLimit} eligible uploads per movie without changing the quality policy",
+            pool, formatSkips, ageRestrictedSkips, TrailerSourceAcquirer.MaximumUploadsPerMovie);
+        if (extractionWarnings > 0)
+        {
+            _logger.LogWarning(
+                "Trailer Reel {Pool}: {Count} format failures also reported YouTube extraction/runtime warnings. Check the yt-dlp version, configured Deno runtime and yt-dlp config path; missing formats may be an extraction problem",
+                pool, extractionWarnings);
+        }
         progress.Report(progressEnd);
     }
 
@@ -345,7 +385,7 @@ public sealed class TrailerCatalogRefreshService
             if (shortages > 0 && (pool.Pool == TrailerPool.Regular || config.EnableAnimeMovieTrailers))
             {
                 _logger.LogWarning(
-                    "Trailer Reel {Pool} coverage remains below target for {Shortages} local profile(s); see {Report}. Discovery respects the pool cap, release window, local exclusions, exact-1080p policy and strict matching. Managed-file deletion enabled: {DeletionEnabled}",
+                    "Trailer Reel {Pool} coverage remains below target for {Shortages} local profile(s); see {Report}. Discovery respects the pool cap, release window, local exclusions, Full HD quality policy and strict matching. Managed-file deletion enabled: {DeletionEnabled}",
                     pool.Pool, shortages, GenreCoverageReport.FileName, config.DeleteExpiredManagedTrailers);
             }
         }

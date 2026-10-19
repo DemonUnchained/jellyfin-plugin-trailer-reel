@@ -6,6 +6,11 @@ namespace Jellyfin.Plugin.TrailerReel.Services;
 
 public sealed class YtDlpDownloader
 {
+    // Widescreen Full HD uploads can omit letterboxing (for example, 1920x960).
+    // Require one Full HD edge and keep both dimensions within a 1920x1080 frame.
+    internal const string FullHdFormatSelector = "bv*[height=1080][width<=1920]+ba/b[height=1080][width<=1920][acodec!=none]/bv*[width=1920][height<1080]+ba/b[width=1920][height<1080][acodec!=none]";
+    internal const string UpToFullHdFormatSelector = "bv*[width<=1920][height<=1080]+ba/b[width<=1920][height<=1080][acodec!=none]";
+
     private readonly ILogger<YtDlpDownloader> _logger;
 
     public YtDlpDownloader(ILogger<YtDlpDownloader> logger)
@@ -53,13 +58,12 @@ public sealed class YtDlpDownloader
 
             startInfo.ArgumentList.Add("--no-playlist");
             startInfo.ArgumentList.Add("--quiet");
-            startInfo.ArgumentList.Add("--no-warnings");
             startInfo.ArgumentList.Add("--print");
             startInfo.ArgumentList.Add("after_move:filepath");
             startInfo.ArgumentList.Add("--format");
             startInfo.ArgumentList.Add(config.RequireExact1080p
-                ? "bv*[height=1080]+ba/b[height=1080]"
-                : "bv*[height<=1080]+ba/b[height<=1080]");
+                ? FullHdFormatSelector
+                : UpToFullHdFormatSelector);
             startInfo.ArgumentList.Add("--merge-output-format");
             startInfo.ArgumentList.Add("mp4");
             startInfo.ArgumentList.Add("--output");
@@ -91,6 +95,11 @@ public sealed class YtDlpDownloader
 
             if (process.ExitCode != 0)
             {
+                if (TrailerSourceRejectedException.FromYtDlpError(stderr) is { } rejection)
+                {
+                    throw rejection;
+                }
+
                 throw new InvalidOperationException(
                     $"yt-dlp exited with code {process.ExitCode}: {LastUsefulLine(stderr)}");
             }
