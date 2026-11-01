@@ -4,14 +4,14 @@
   "plugin": {
     "repository": "DemonUnchained/jellyfin-plugin-trailer-reel",
     "branch": "codex/development-handoff",
-    "commit": "4ed6988bbd258a8640bd69c4009616b664a57de3",
+    "commit": "7036b8eee5304f9d00ae3ae769c12770a7145399",
     "tree": "26165e876870390a4e01356656e469cfb0497bdb",
-    "working_tree": "Uncommitted handoff integration and unreleased persistence/concurrency fixes; commit/tree/tag identify the published baseline, not the modified DLL.",
-    "version": "0.4.1.1",
+    "working_tree": "Release published; documentation records verified publication and catalog synchronization.",
+    "version": "0.4.1.2",
     "guid": "c124b60d-fb89-47bb-9c93-fc2649152a75",
-    "tag": "v0.4.1.1",
-    "release_url": "https://github.com/DemonUnchained/jellyfin-plugin-trailer-reel/releases/tag/v0.4.1.1",
-    "published_at": "2026-10-19T15:21:43Z",
+    "tag": "v0.4.1.2",
+    "release_url": "https://github.com/DemonUnchained/jellyfin-plugin-trailer-reel/releases/tag/v0.4.1.2",
+    "published_at": "2026-11-01T00:29:04Z",
     "minimum_abi": "12.2.0.0",
     "production_packages": "12.2.0",
     "target_framework": "net10.0",
@@ -33,28 +33,24 @@
   },
   "published_assets": [
     {
-      "name": "jellyfin-trailer-reel-source_0.4.1.1.zip",
-      "size": 76160,
-      "digest": "sha256:3bffe9fa42ebae58d7094bee81576db21f2fd59917db089113c201867e7367ce",
-      "url": "https://github.com/DemonUnchained/jellyfin-plugin-trailer-reel/releases/download/v0.4.1.1/jellyfin-trailer-reel-source_0.4.1.1.zip"
+      "name": "jellyfin-trailer-reel-source_0.4.1.2.zip",
+      "sha256": "507078697be1bcb5d120bb0a351ee67b706c292311aad9f600b2e7a5e4008500",
+      "size": 112261
     },
     {
-      "name": "SHA256SUMS-0.4.1.1.txt",
-      "size": 296,
-      "digest": "sha256:1323e7a06c9ff89bc4ea442ad458e1a0ad174c7190aa8633d0051a30c0b5bace",
-      "url": "https://github.com/DemonUnchained/jellyfin-plugin-trailer-reel/releases/download/v0.4.1.1/SHA256SUMS-0.4.1.1.txt"
+      "name": "SHA256SUMS-0.4.1.2.txt",
+      "sha256": "fd4fc7e86c9e6d51037313ea2beb1d6634223a174d3356413dbf251a1218ce1d",
+      "size": 296
     },
     {
-      "name": "trailer-reel_0.4.1.1-manual.zip",
-      "size": 108379,
-      "digest": "sha256:28fa9d949946dc719cc1ec5f12e4fcb77565477ec5f786c446abf984696279de",
-      "url": "https://github.com/DemonUnchained/jellyfin-plugin-trailer-reel/releases/download/v0.4.1.1/trailer-reel_0.4.1.1-manual.zip"
+      "name": "trailer-reel_0.4.1.2-manual.zip",
+      "sha256": "425c1bbba406af8bf04bdf1d6671db9898d7242409fee04d6e3cb58c21806367",
+      "size": 114608
     },
     {
-      "name": "trailer-reel_0.4.1.1.zip",
-      "size": 93612,
-      "digest": "sha256:389b22d1131bab06abef4eeced5c3b89eb1d6010f053a9f45ef93247de670aa9",
-      "url": "https://github.com/DemonUnchained/jellyfin-plugin-trailer-reel/releases/download/v0.4.1.1/trailer-reel_0.4.1.1.zip"
+      "name": "trailer-reel_0.4.1.2.zip",
+      "sha256": "a40b3c193e89daff29885f6eac4b08b0d2e9e9657b52dc21b6fd6324636654aa",
+      "size": 94457
     }
   ],
   "original_ci": {
@@ -77,9 +73,9 @@
   "handoff": {
     "version": "1.0",
     "runtime_changes": true,
-    "publishing_performed": false,
+    "publishing_performed": true,
     "ci_integration_pending": false,
-    "hosted_ci_validation_pending": true,
+    "hosted_ci_validation_pending": false,
     "files_for_review": [
       ".github/workflows/build.yml",
       ".gitignore",
@@ -121,13 +117,11 @@
       "Corrected the missing-SDK diagnostic to reference global.json instead of an absent setup script"
     ],
     "remaining_gaps": [
-      "Updated workflow needs a hosted run after branch review and push",
-      "Live Unraid activation, media streaming/decoding and client playback require a separately requested server rollout",
-      "Historical published asset and companion catalog metadata above were retained from the handoff, not reverified during local integration"
+      "Live Unraid activation and client playback have not been tested; no server deployment requested."
     ]
   },
   "next_development_step": {
-    "action": "Review and commit the combined local changes, push the branch for a PR, and verify hosted CI passes 107 regressions, 22 selectors and 22 binary checks for each of 12.3.0 and 12.4.0 (173 total), plus four artifacts.",
+    "action": "Live Unraid/client validation when a server rollout is requested.",
     "publish_or_deploy": false
   },
   "initial_handoff_validation": {
@@ -188,7 +182,7 @@
   "maintenance": {
     "scope": "Jellyfin 12.4 compatibility and source issue review",
     "runtime_changes": true,
-    "released": false,
+    "released": true,
     "baseline_dll_12_4_checks": 17,
     "baseline_dll_12_4_sha256": "4cae0edd1f2863e0549574de5ee94d65c533a90ad35ed8f5d306a60ef9a08f5c",
     "fixes": [
@@ -203,12 +197,47 @@
       "Full HD/audio checks, alternate uploads and pool budgets",
       "existing release triggers and asset layouts"
     ],
-    "release_preparation_required": "Choose a new four-part version and release notes if publication is requested; do not overwrite v0.4.1.1 assets."
+    "release_preparation_required": "Completed for v0.4.1.2."
   },
   "release_preparation": {
     "version": "0.4.1.2",
-    "status": "prepared for validation and publication",
+    "status": "published and verified",
     "minimum_abi": "12.2.0.0",
     "server_deployment": false
+  },
+  "publication_verification": {
+    "release_url": "https://github.com/DemonUnchained/jellyfin-plugin-trailer-reel/releases/tag/v0.4.1.2",
+    "published_at": "2026-11-01T00:29:04Z",
+    "tag": "v0.4.1.2",
+    "commit": "7036b8eee5304f9d00ae3ae769c12770a7145399",
+    "runtime_md5": "dbf16b6d2a40902b14d386d60cf3b02f",
+    "assets": [
+      {
+        "name": "jellyfin-trailer-reel-source_0.4.1.2.zip",
+        "sha256": "507078697be1bcb5d120bb0a351ee67b706c292311aad9f600b2e7a5e4008500",
+        "size": 112261
+      },
+      {
+        "name": "SHA256SUMS-0.4.1.2.txt",
+        "sha256": "fd4fc7e86c9e6d51037313ea2beb1d6634223a174d3356413dbf251a1218ce1d",
+        "size": 296
+      },
+      {
+        "name": "trailer-reel_0.4.1.2-manual.zip",
+        "sha256": "425c1bbba406af8bf04bdf1d6671db9898d7242409fee04d6e3cb58c21806367",
+        "size": 114608
+      },
+      {
+        "name": "trailer-reel_0.4.1.2.zip",
+        "sha256": "a40b3c193e89daff29885f6eac4b08b0d2e9e9657b52dc21b6fd6324636654aa",
+        "size": 94457
+      }
+    ],
+    "ci_run": "https://github.com/DemonUnchained/jellyfin-plugin-trailer-reel/actions/runs/41256898833",
+    "catalog_run": "https://github.com/DemonUnchained/jellyfin-plugin-repository/actions/runs/41257016982",
+    "catalog_verified": true,
+    "other_plugins_and_historical_versions_unchanged": true,
+    "published_dll_12_4_checks": 22,
+    "published_dll_sha256": "15a795785e8b0a94d0f2e8c57fdcf8c6895406a30ea9011e4034fd4694c42c7d"
   }
 }

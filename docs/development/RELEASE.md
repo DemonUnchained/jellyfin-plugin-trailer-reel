@@ -1,3 +1,5 @@
+Publication verified: [v0.4.1.2](https://github.com/DemonUnchained/jellyfin-plugin-trailer-reel/releases/tag/v0.4.1.2), October 31, 2026 (America/New_York). All four assets passed SHA-256 and archive checks; the published DLL passed 22 isolated Jellyfin 12.4 checks. Hosted release CI and catalog synchronization succeeded. Public catalog MD5, ABI, timestamp and URL match; historical entries and other plugins are unchanged. No server deployment or live playback test. Earlier development observations below retain their historical context.
+
 Release preparation: v0.4.1.2 contains the persistence/concurrency fixes and 12.4 compatibility checks. The metadata below retains the original handoff baseline for historical context. Publication is authorized; server deployment is not requested.
 
 # Releases and the shared Jellyfin catalog
