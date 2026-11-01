@@ -6,7 +6,7 @@ This release includes setup scripts for the external tools required by Trailer R
 
 | Purpose | Unraid host path | Jellyfin container path |
 | --- | --- | --- |
-| Plugin | `/path/to/jellyfin/config/plugins/TrailerReel_0.4.1.1` | `/config/plugins/TrailerReel_0.4.1.1` |
+| Plugin | `/path/to/jellyfin/config/plugins/TrailerReel_0.4.1.2` | `/config/plugins/TrailerReel_0.4.1.2` |
 | yt-dlp | `/path/to/jellyfin/config/trailer-tools/yt-dlp` | `/config/trailer-tools/yt-dlp` |
 | Deno | `/path/to/jellyfin/config/trailer-tools/deno` | `/config/trailer-tools/deno` |
 | yt-dlp config | `/path/to/jellyfin/config/trailer-tools/yt-dlp.conf` | `/config/trailer-tools/yt-dlp.conf` |
@@ -18,35 +18,35 @@ In the commands below, set `JELLYFIN_APPDATA` to the host directory that contain
 JELLYFIN_APPDATA=/path/to/jellyfin
 ```
 
-## 1. Confirm Jellyfin 12.2, then replace the plugin
+## 1. Confirm Jellyfin 12.2, 12.3 or 12.4, then replace the plugin
 
-Trailer Reel 0.4.1.1 is for Jellyfin 12.2 and targets ABI `12.2.0.0`. Confirm **Dashboard → General** reports Jellyfin 12.2.x before installing it.
+Trailer Reel 0.4.1.2 supports Jellyfin 12.2.x and has separately passed isolated binary compatibility checks against 12.3.0 and 12.4.0. It remains compiled against the 12.2.0 packages and targets minimum ABI `12.2.0.0`. Confirm **Dashboard → General** reports Jellyfin 12.2.x, 12.3.x or 12.4.x before installing it. The synthetic compatibility host does not verify live Unraid or client playback; those checks remain part of a requested server rollout. Version 0.4.1.2 includes the persistence/concurrency fixes described in the repository README.
 
-When Jellyfin 12.2 and Trailer Reel 0.4.1.0 are currently installed:
+When Jellyfin 12.2/12.3/12.4 and Trailer Reel 0.4.1.0 are currently installed:
 
 1. Stop Jellyfin and take a manual backup of its persistent `/config` data.
 2. Move `TrailerReel_0.4.1.0` out of `$JELLYFIN_APPDATA/config/plugins` to a rollback directory that is not beneath `plugins`.
-3. Extract `TrailerReel_0.4.1.1` from `trailer-reel_0.4.1.1-manual.zip` into the `plugins` directory and correct its ownership as shown below.
-4. Start Jellyfin and confirm the Dashboard reports Trailer Reel 0.4.1.1.
+3. Extract `TrailerReel_0.4.1.2` from `trailer-reel_0.4.1.2-manual.zip` into the `plugins` directory and correct its ownership as shown below.
+4. Start Jellyfin and confirm the Dashboard reports Trailer Reel 0.4.1.2.
 5. Keep `/config/trailer-tools`, `/trailers`, the Trailer Reel configuration XML, and the existing catalog. The unchanged plugin GUID preserves settings, separate pools, and per-user watched state.
 
-If Jellyfin already reports 12.2, no Docker Compose change or yt-dlp/Deno reinstall is required. Run **Download/refresh Trailer Reel** once after upgrading to validate genre coverage and rebalance the existing full pools. The new reserve target defaults to six, adjusted to fit each pool cap. If the server still reports 12.1, upgrade Jellyfin first and verify it starts cleanly before adding the 12.2 plugin build.
+If Jellyfin already reports 12.2, 12.3 or 12.4, no server image change or yt-dlp/Deno reinstall is required for this plugin update. Run **Download/refresh Trailer Reel** once after upgrading to validate genre coverage and rebalance the existing full pools. The reserve target defaults to six, adjusted to fit each pool cap. If the server still reports 12.1, upgrade Jellyfin first and verify it starts cleanly before adding this plugin build. An existing 0.4.1.2 installation needs no plugin replacement for the development handoff.
 
 ## 2. Extract the plugin release
 
 For a manual installation, use the release asset whose name ends in `-manual.zip`. The ZIP without `-manual` contains root-level runtime files specifically for Jellyfin's plugin catalog. Extract the manual release ZIP so the host contains:
 
 ```text
-/path/to/jellyfin/config/plugins/TrailerReel_0.4.1.1/Jellyfin.Plugin.TrailerReel.dll
+/path/to/jellyfin/config/plugins/TrailerReel_0.4.1.2/Jellyfin.Plugin.TrailerReel.dll
 ```
 
-Do not create a second nested `TrailerReel_0.4.1.1/TrailerReel_0.4.1.1` directory. Keep older Trailer Reel assemblies outside the active `plugins` directory. The unchanged plugin GUID allows the Jellyfin 12.2 build to reuse the existing Trailer Reel settings and per-user watched history.
+Do not create a second nested `TrailerReel_0.4.1.2/TrailerReel_0.4.1.2` directory. Keep older Trailer Reel assemblies outside the active `plugins` directory. The unchanged plugin GUID allows this build to reuse the existing Trailer Reel settings and per-user watched history on all three server versions.
 
-A ZIP extracted by `root` remains root-owned, but Jellyfin 12.2 must update the plugin's `meta.json` during activation. Set `JELLYFIN_OWNER` to the UID/GID from the service's Compose `user:` setting, then correct the ownership before startup:
+A ZIP extracted by `root` remains root-owned, but Jellyfin must update the plugin's `meta.json` during activation. Set `JELLYFIN_OWNER` to the UID/GID from the service's Compose `user:` setting, then correct the ownership before startup:
 
 ```bash
 JELLYFIN_OWNER=<uid>:<gid>
-chown -R "$JELLYFIN_OWNER" "$JELLYFIN_APPDATA/config/plugins/TrailerReel_0.4.1.1"
+chown -R "$JELLYFIN_OWNER" "$JELLYFIN_APPDATA/config/plugins/TrailerReel_0.4.1.2"
 ```
 
 ## 3. Install yt-dlp and Deno
@@ -54,7 +54,7 @@ chown -R "$JELLYFIN_OWNER" "$JELLYFIN_APPDATA/config/plugins/TrailerReel_0.4.1.1
 Run this from the Unraid terminal after extraction:
 
 ```bash
-bash "$JELLYFIN_APPDATA/config/plugins/TrailerReel_0.4.1.1/tools/install-unraid-tools.sh"
+bash "$JELLYFIN_APPDATA/config/plugins/TrailerReel_0.4.1.2/tools/install-unraid-tools.sh"
 ```
 
 The script downloads only from the official `yt-dlp/yt-dlp` and `denoland/deno` GitHub release repositories. It resolves one release tag for each tool and uses that same tag for the executable and checksum, preventing a latest-release rollover from mixing versions during installation. Re-running the script updates both executables; it preserves an existing `yt-dlp.conf`.
@@ -71,14 +71,14 @@ Add this line to the existing Jellyfin service's `volumes:` list:
 
 Preserve every existing Jellyfin setting, including its `/config`, `/cache`, and read-only `/media` mappings, Intel render device, and `group_add: "18"`. Do not add `:ro` to `/trailers`; the plugin must create and remove its managed trailer files.
 
-There is no new companion container and no change to Jellyfin's network or VPN routing. If Jellyfin already runs the official `12.2` image, do not change the image for this plugin update.
+There is no new companion container and no change to Jellyfin's network or VPN routing. If Jellyfin already runs the official `12.2`, `12.3` or `12.4` image, keep that image for this plugin update.
 
 ## 5. Restart and validate
 
-After extracting the Jellyfin 12.2 plugin build and confirming the `/trailers` mapping, restart Jellyfin. Then run:
+After extracting the plugin build and confirming the `/trailers` mapping, restart Jellyfin. Then run:
 
 ```bash
-bash "$JELLYFIN_APPDATA/config/plugins/TrailerReel_0.4.1.1/tools/verify-container-tools.sh" jellyfin
+bash "$JELLYFIN_APPDATA/config/plugins/TrailerReel_0.4.1.2/tools/verify-container-tools.sh" jellyfin
 ```
 
 The validation checks that yt-dlp, Deno, Jellyfin FFmpeg, the yt-dlp configuration, Internet extraction, and write access to `/trailers` are all available from inside Jellyfin. It does not download the test video. Its optional second argument overrides the test URL if the default video later becomes unavailable. Existing yt-dlp and Deno files under `/config/trailer-tools` survive the Jellyfin image replacement and do not need to be reinstalled when these checks pass.

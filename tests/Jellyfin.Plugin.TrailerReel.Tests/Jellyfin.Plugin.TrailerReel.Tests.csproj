@@ -7,6 +7,9 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Jellyfin.Plugin.TrailerReel/Jellyfin.Plugin.TrailerReel.csproj" />
+    <!-- Refresh fixtures construct real plugin services; supply their host runtime contracts. -->
+    <PackageReference Include="Jellyfin.Controller" Version="12.2.0" />
+    <PackageReference Include="Jellyfin.Model" Version="12.2.0" />
     <PackageReference Include="Jellyfin.Naming" Version="12.2.0" />
   </ItemGroup>
 </Project>

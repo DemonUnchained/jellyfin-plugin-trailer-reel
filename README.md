@@ -1,8 +1,17 @@
 # Trailer Reel for Jellyfin
 
-Trailer Reel is a Jellyfin 12.2 server plugin that maintains isolated local catalogs of recent and upcoming regular-movie and anime-movie trailers and inserts up to three closely matched trailers before a movie.
+Trailer Reel is a Jellyfin 12.2/12.3/12.4 server plugin that maintains isolated local catalogs of recent and upcoming regular-movie and anime-movie trailers and inserts up to three closely matched trailers before a movie. It is compiled against Jellyfin 12.2.0, with separate binary compatibility checks against 12.3.0 and 12.4.0.
 
-## What version 0.4.1 does
+## Changes in 0.4.1.2
+
+- Catalog eligibility/cap cleanup now saves successfully before deleting old managed media. A failed save preserves the previous files and catalog.
+- Corrupt or unreadable catalogs stop refresh without becoming cached empty stock. Playback skips prerolls on a catalog read failure, and a repaired catalog is retried.
+- Concurrent intro requests serialize queue creation and watched marking. Separate launches for the same user cannot reserve the same unwatched trailers; duplicate requests receive the same cached queue.
+- Local Windows checks cover Jellyfin 12.4.0 as well as 12.3.0. The production minimum remains 12.2.0.0. These are isolated contract checks; live Unraid/client playback is not verified.
+
+Version 0.4.1.2 includes these persistence and concurrency fixes and isolated Jellyfin 12.4 compatibility verification.
+
+## What version 0.4.1.2 does
 
 - Reads the genres already present on movies in the local Jellyfin database and separates movies belonging to the configured `Anime Movies` library.
 - Uses the TMDb API with locale `en-US`, region `US`, and U.S. limited/theatrical/digital release types.
@@ -20,7 +29,7 @@ Trailer Reel is a Jellyfin 12.2 server plugin that maintains isolated local cata
 - Names every downloaded file `Movie Name-trailer.ext` regardless of its pool.
 - Uses `Movie Name (Year)-trailer.ext`, then `Movie Name [tmdb-ID]-trailer.ext`, only when duplicate movie names would collide.
 - Creates a Jellyfin home-video library named `Trailer Reel (Internal)`, excludes it from users' My Media and Latest views, and indexes the downloaded files for playback.
-- Preserves the required `Movie Name-trailer.ext` files while creating relative symlink aliases under `TrailerReelIndex/` whose names Jellyfin 12.2 will index. The aliases consume no duplicate video space and resolve back to the originals during playback.
+- Preserves the required `Movie Name-trailer.ext` files while creating relative symlink aliases under `TrailerReelIndex/` whose names Jellyfin can index. The aliases consume no duplicate video space and resolve back to the originals during playback.
 - Implements Jellyfin's native `IIntroProvider` and returns up to three files from the correct pool that match the selected movie's anchor genre and overall genre profile.
 - Uses Jellyfin's per-user watched state so a trailer committed to one user's preroll queue is not selected for that user again; other users can still receive it.
 - Skips trailers when resuming a partially watched movie by default.
@@ -28,7 +37,7 @@ Trailer Reel is a Jellyfin 12.2 server plugin that maintains isolated local cata
 
 ## Requirements
 
-- Jellyfin Server **12.2.x**. This build targets Jellyfin ABI `12.2.0.0` and is compiled against the released Jellyfin 12.2.0 packages.
+- Jellyfin Server **12.2.x, 12.3.x or 12.4.x**. This build targets Jellyfin ABI `12.2.0.0` and is compiled against the released Jellyfin 12.2.0 packages. A separate synthetic host verifies the plugin DLL against 12.3.0 and 12.4.0; it does not verify live Unraid or client playback.
 - A free TMDb API **read access token**.
 - `yt-dlp` and Deno available inside the Jellyfin container. The release includes a checksum-verifying Unraid installer for both tools.
 - `ffmpeg` available to `yt-dlp` inside the container. Most Jellyfin images already include Jellyfin FFmpeg, but its location may need to be set in the optional yt-dlp config.
@@ -39,17 +48,17 @@ The TMDb token is masked in the plugin page but Jellyfin stores plugin configura
 
 ## Manual installation
 
-1. Download the `trailer-reel_0.4.1.1-manual.zip` release asset and extract `TrailerReel_0.4.1.1` into Jellyfin's persistent `plugins` directory. The similarly named ZIP without `-manual` is the root-level package used by Jellyfin's plugin catalog and must not be extracted directly into the shared `plugins` directory.
+1. Download the `trailer-reel_0.4.1.2-manual.zip` release asset and extract `TrailerReel_0.4.1.2` into Jellyfin's persistent `plugins` directory. The similarly named ZIP without `-manual` is the root-level package used by Jellyfin's plugin catalog and must not be extracted directly into the shared `plugins` directory.
 2. Confirm this path exists inside the configuration volume:
 
    ```text
-   plugins/TrailerReel_0.4.1.1/Jellyfin.Plugin.TrailerReel.dll
+   plugins/TrailerReel_0.4.1.2/Jellyfin.Plugin.TrailerReel.dll
    ```
 
 3. If Jellyfin runs as a numeric Docker user, make the extracted directory owned by that same UID/GID before startup:
 
    ```bash
-   chown -R <jellyfin-uid>:<jellyfin-gid> /path/to/jellyfin/config/plugins/TrailerReel_0.4.1.1
+   chown -R <jellyfin-uid>:<jellyfin-gid> /path/to/jellyfin/config/plugins/TrailerReel_0.4.1.2
    ```
 
 4. Restart Jellyfin.
@@ -159,17 +168,33 @@ After upgrading from 0.4.0.0, run **Download/refresh Trailer Reel** once to vali
 - Each refresh drops trailers for movies now hosted locally from the active catalog. When managed-file cleanup is enabled, it also deletes those catalog-managed trailer files.
 - `TrailerReelIndex/` contains only relative symlink aliases used to avoid Jellyfin's special handling of the `-trailer` suffix. Trailer Reel reconciles its own marked aliases on every refresh; deleting an alias does not delete the original video.
 - The hidden library is implementation plumbing: Jellyfin requires real library item IDs to construct playable media sources for intros.
-- This release has been compiled against the released Jellyfin 12.2.0 packages, and its pool-isolation, anime-classification, profile-matching, coverage/replacement, discovery-pagination, selection, indexing, and naming tests pass on .NET 10. Exercise the anime pool with a low cap before allowing the full 30-file run.
+- Local Windows validation on October 31, 2026 passed 107 .NET regressions, 22 offline real yt-dlp selector checks, and 22 isolated binary checks per host for Jellyfin 12.3.0 and 12.4.0, including all 817 closed plugin methods and relative symlink aliases. Production references remain 12.2.0 and minimum ABI `12.2.0.0`. Live Unraid/client playback was not tested. Exercise the anime pool with a low cap before allowing the full 30-file run.
 
 ## Build
 
-.NET SDK 10 is required only to build the source; it is not installed separately on the Jellyfin server. `global.json` records the validated SDK feature band for reproducible development builds.
+.NET SDK 10.0.401 (or a permitted patch from `global.json`) and Python 3.10+ are required to build and validate locally; they are not installed separately on the Jellyfin server.
+
+Windows:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
+```
+
+Linux/WSL:
+
+```bash
+python3 tools/build-local.py
+```
+
+These commands build Release, execute 107 .NET regressions, run 22 offline yt-dlp selector checks, and test the same DLL in the separate 22-check Jellyfin 12.4.0 host. Use `-NoPackage` / `--no-package` to omit ZIP creation. To check 12.3.0, add `-CompatibilityVersion 12.3.0` on Windows or `--compatibility-version 12.3.0` on Linux. Windows must permit symlinks, normally through Developer Mode; indexing checks are required.
+
+The existing Linux/CI build entry point remains:
 
 ```bash
 bash ./build.sh
 ```
 
-CI also runs `tests/Jellyfin.Plugin.TrailerReel.Tests/format_selection_test.py` against yt-dlp 2026.08.19. These offline checks exercise the production format selectors with standard and cropped Full HD, lower resolutions, higher resolutions, audio requirements, and unknown dimensions. Socket connections are blocked during the checks.
+Hosted CI uses the SDK selected by `global.json`, runs the offline selector suite against yt-dlp 2026.08.19, and runs the separate host against both 12.3.0 and 12.4.0 before uploading artifacts or publishing a tagged release. Each host's copied DLL must match the production DLL byte for byte. The offline selector checks exercise standard and cropped Full HD, lower/higher resolutions, audio requirements, and unknown dimensions with sockets blocked.
 
 The script restores packages, builds Release, runs the lightweight test executable, and writes three ZIP assets plus a checksum file to `dist/`: a root-level runtime ZIP for Jellyfin's plugin catalog, a full `-manual.zip` bundle with one enclosing plugin directory, and a source ZIP.
 
@@ -184,3 +209,18 @@ bash ./build.sh --package-only
 This product uses the TMDB API but is not endorsed or certified by TMDB.
 
 Downloading and retaining trailers may be restricted by copyright or the source platform's terms. Configure and operate the plugin only for sources and uses you are authorized to access.
+
+<!-- trailer-reel-codex-handoff-v1 -->
+## Local Codex development
+
+The local development handoff adds `AGENTS.md`, `docs/development/`, a native PowerShell/Python build entry point, and an isolated Jellyfin compatibility host. Read `docs/development/CODEX_HANDOFF.md` before changing plugin behavior.
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
+```
+
+Use `-NoPackage` for validation without ZIP creation. Linux/WSL can run `python3 tools/build-local.py`. The command runs 107 .NET regressions, 22 offline real yt-dlp selector checks, and 22 additional binary compatibility checks against Jellyfin 12.4. CI also runs the host against 12.3. Test counts describe the current checkout and should be updated as tests change. `dotnet test` alone does not run these console executables.
+
+Production references remain Jellyfin 12.2.0 and minimum ABI `12.2.0.0`; the separate compatibility host uses 12.4.0 by default and can also target 12.3.0. Both the unchanged handoff DLL and the current fixes passed isolated 12.4 checks on Windows on October 31, 2026. No live-server playback verification, release, or deployment was performed. See `docs/development/VALIDATION.md` and `docs/development/PROJECT_STATUS.json` for evidence and remaining checks.
+
+Local SDKs, virtual environments, and validation output live under ignored `.codex-local/`. Native source packaging admits Git-tracked files and the known handoff overlay; explicitly stage any additional source files intended for a release. The Bash source archive excludes local SDKs, virtual environments, and Python caches. Hosted CI now includes compatibility verification; the existing release triggers, asset names, and root-level catalog ZIP layout are retained. The updated workflow still needs a hosted run after review and push.

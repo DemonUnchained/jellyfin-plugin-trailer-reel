@@ -4,3 +4,7 @@ dist/
 .idea/
 .vs/
 .vscode/
+.codex-local/
+.venv/
+**/__pycache__/
+*.pyc
