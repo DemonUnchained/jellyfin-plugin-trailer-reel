@@ -37,25 +37,38 @@ public sealed class CatalogStore
             }
 
             var path = Path.Combine(folder, CatalogFileName);
-            if (!File.Exists(path))
+            TrailerCatalog catalog;
+            try
             {
-                _cached = new TrailerCatalog();
-                _cachedFolder = folder;
-                return Clone(_cached);
+                await using var stream = File.OpenRead(path);
+                catalog = await JsonSerializer.DeserializeAsync<TrailerCatalog>(stream, JsonOptions, cancellationToken)
+                    .ConfigureAwait(false) ?? throw new InvalidDataException("Trailer Reel's existing catalog contains no catalog object.");
+            }
+            catch (FileNotFoundException)
+            {
+                catalog = new TrailerCatalog();
+            }
+            catch (DirectoryNotFoundException)
+            {
+                catalog = new TrailerCatalog();
             }
 
-            await using var stream = File.OpenRead(path);
-            _cached = await JsonSerializer.DeserializeAsync<TrailerCatalog>(stream, JsonOptions, cancellationToken)
-                .ConfigureAwait(false) ?? new TrailerCatalog();
+            if (catalog.LocalGenres is null || catalog.AnimeLocalGenres is null || catalog.Trailers is null
+                || catalog.Trailers.Any(entry => entry is null || entry.Genres is null))
+            {
+                throw new InvalidDataException("Trailer Reel's existing catalog contains null collections or entries.");
+            }
+
+            // Validate the loaded shape before publishing it to the playback cache.
+            var result = Clone(catalog);
+            _cached = catalog;
             _cachedFolder = folder;
-            return Clone(_cached);
+            return result;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning(ex, "Trailer Reel could not read its catalog; starting with an empty catalog");
-            _cached = new TrailerCatalog();
-            _cachedFolder = folder;
-            return Clone(_cached);
+            _logger.LogWarning(ex, "Trailer Reel could not read its catalog; preserving the existing catalog and stopping this operation");
+            throw;
         }
         finally
         {

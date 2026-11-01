@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <JellyfinVersion Condition="'$(JellyfinVersion)' == ''">12.4.0</JellyfinVersion>
+    <PluginDllPath Condition="'$(PluginDllPath)' == ''">$(MSBuildThisFileDirectory)../../src/Jellyfin.Plugin.TrailerReel/bin/Release/net10.0/Jellyfin.Plugin.TrailerReel.dll</PluginDllPath>
+    <PluginMetaPath Condition="'$(PluginMetaPath)' == ''">$(MSBuildThisFileDirectory)../../src/Jellyfin.Plugin.TrailerReel/meta.json</PluginMetaPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Jellyfin.Plugin.TrailerReel">
+      <HintPath>$(PluginDllPath)</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <PackageReference Include="Jellyfin.Controller" Version="$(JellyfinVersion)" />
+    <PackageReference Include="Jellyfin.Model" Version="$(JellyfinVersion)" />
+    <PackageReference Include="Jellyfin.Naming" Version="$(JellyfinVersion)" />
+    <None Include="$(PluginMetaPath)" Link="plugin-meta.json" CopyToOutputDirectory="Always" />
+  </ItemGroup>
+  <Target Name="CopyExactPluginUnderTest" AfterTargets="Build">
+    <!-- Different builds can share an assembly name/version. Test the selected bytes. -->
+    <Copy SourceFiles="$(PluginDllPath)" DestinationFiles="$(TargetDir)Jellyfin.Plugin.TrailerReel.dll" SkipUnchangedFiles="false" />
+  </Target>
+</Project>

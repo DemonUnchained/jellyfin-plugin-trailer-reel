@@ -108,11 +108,6 @@ public sealed class TrailerCatalogRefreshService
             : [];
         var retained = retainedRegular.Concat(retainedAnime).ToList();
 
-        if (config.DeleteExpiredManagedTrailers)
-        {
-            DeleteNoLongerRetained(folder, previousCatalog.Trailers, retained);
-        }
-
         var catalog = new TrailerCatalog
         {
             UpdatedUtc = DateTimeOffset.UtcNow,
@@ -123,6 +118,12 @@ public sealed class TrailerCatalogRefreshService
             Trailers = retained,
         };
         await _catalogStore.SaveAsync(folder, catalog, cancellationToken).ConfigureAwait(false);
+        // Persist eligibility/cap cleanup before removing any previously managed media.
+        if (config.DeleteExpiredManagedTrailers)
+        {
+            DeleteNoLongerRetained(folder, previousCatalog.Trailers, retained);
+        }
+
         progress.Report(7);
 
         await ReplenishPoolAsync(

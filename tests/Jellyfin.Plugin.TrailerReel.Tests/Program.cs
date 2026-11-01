@@ -10,8 +10,8 @@ var failures = new List<string>();
 var checks = 0;
 
 Check(
-    "assembly version is 0.4.1.1",
-    typeof(PluginConfiguration).Assembly.GetName().Version == new Version(0, 4, 1, 1));
+    "assembly version is 0.4.1.2",
+    typeof(PluginConfiguration).Assembly.GetName().Version == new Version(0, 4, 1, 2));
 
 Check(
     "genre aliases overlap",
@@ -79,6 +79,7 @@ Check(
 
 await GenreCoverageTests.RunAsync(Check);
 await TrailerSourceTests.RunAsync(Check);
+await PersistenceTests.RunAsync(Check);
 
 var defaultConfig = new PluginConfiguration();
 Check("anime trailer pool is enabled by default", defaultConfig.EnableAnimeMovieTrailers);

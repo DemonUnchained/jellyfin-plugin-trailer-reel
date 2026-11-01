@@ -1,0 +1,214 @@
+{
+  "snapshot_date": "2026-10-31",
+  "timezone": "America/New_York",
+  "plugin": {
+    "repository": "DemonUnchained/jellyfin-plugin-trailer-reel",
+    "branch": "codex/development-handoff",
+    "commit": "4ed6988bbd258a8640bd69c4009616b664a57de3",
+    "tree": "26165e876870390a4e01356656e469cfb0497bdb",
+    "working_tree": "Uncommitted handoff integration and unreleased persistence/concurrency fixes; commit/tree/tag identify the published baseline, not the modified DLL.",
+    "version": "0.4.1.1",
+    "guid": "c124b60d-fb89-47bb-9c93-fc2649152a75",
+    "tag": "v0.4.1.1",
+    "release_url": "https://github.com/DemonUnchained/jellyfin-plugin-trailer-reel/releases/tag/v0.4.1.1",
+    "published_at": "2026-10-19T15:21:43Z",
+    "minimum_abi": "12.2.0.0",
+    "production_packages": "12.2.0",
+    "target_framework": "net10.0",
+    "sdk": "10.0.401",
+    "saved_quality_setting": "RequireExact1080p"
+  },
+  "server": {
+    "reported_version": "12.3",
+    "platform": "Unraid container",
+    "live_server_validation_performed": false
+  },
+  "catalog": {
+    "repository": "DemonUnchained/jellyfin-plugin-repository",
+    "observed_main_commit": "5c89039eab18078eddb237397c19b6a1535390d4",
+    "url": "https://raw.githubusercontent.com/DemonUnchained/jellyfin-plugin-repository/main/manifest.json",
+    "trailer_reel_runtime_md5": "1856758780f4371e9eb7de19db56bc97",
+    "current_default_abi": "12.2.0.0",
+    "preserve_other_plugins": true
+  },
+  "published_assets": [
+    {
+      "name": "jellyfin-trailer-reel-source_0.4.1.1.zip",
+      "size": 76160,
+      "digest": "sha256:3bffe9fa42ebae58d7094bee81576db21f2fd59917db089113c201867e7367ce",
+      "url": "https://github.com/DemonUnchained/jellyfin-plugin-trailer-reel/releases/download/v0.4.1.1/jellyfin-trailer-reel-source_0.4.1.1.zip"
+    },
+    {
+      "name": "SHA256SUMS-0.4.1.1.txt",
+      "size": 296,
+      "digest": "sha256:1323e7a06c9ff89bc4ea442ad458e1a0ad174c7190aa8633d0051a30c0b5bace",
+      "url": "https://github.com/DemonUnchained/jellyfin-plugin-trailer-reel/releases/download/v0.4.1.1/SHA256SUMS-0.4.1.1.txt"
+    },
+    {
+      "name": "trailer-reel_0.4.1.1-manual.zip",
+      "size": 108379,
+      "digest": "sha256:28fa9d949946dc719cc1ec5f12e4fcb77565477ec5f786c446abf984696279de",
+      "url": "https://github.com/DemonUnchained/jellyfin-plugin-trailer-reel/releases/download/v0.4.1.1/trailer-reel_0.4.1.1-manual.zip"
+    },
+    {
+      "name": "trailer-reel_0.4.1.1.zip",
+      "size": 93612,
+      "digest": "sha256:389b22d1131bab06abef4eeced5c3b89eb1d6010f053a9f45ef93247de670aa9",
+      "url": "https://github.com/DemonUnchained/jellyfin-plugin-trailer-reel/releases/download/v0.4.1.1/trailer-reel_0.4.1.1.zip"
+    }
+  ],
+  "original_ci": {
+    "status": "success",
+    "rechecked_date": "2026-10-31",
+    "run_url": "https://github.com/DemonUnchained/jellyfin-plugin-trailer-reel/actions/runs/39277216662",
+    "dotnet_checks": 96,
+    "offline_format_checks": 22
+  },
+  "historical_12_3_validation": {
+    "date": "2026-10-23",
+    "source_compile": "passed, zero warnings/errors",
+    "published_dll_dotnet_checks": 96,
+    "published_dll_contract_checks": 17,
+    "methods_prepared": 813,
+    "offline_format_checks": 22,
+    "live_playback": false,
+    "evidence": "Observed in the preceding project conversation; rerun the included compatibility host for current evidence."
+  },
+  "handoff": {
+    "version": "1.0",
+    "runtime_changes": true,
+    "publishing_performed": false,
+    "ci_integration_pending": false,
+    "hosted_ci_validation_pending": true,
+    "files_for_review": [
+      ".github/workflows/build.yml",
+      ".gitignore",
+      "AGENTS.md",
+      "INSTALL-UNRAID.md",
+      "README.md",
+      "build.ps1",
+      "build.sh",
+      "docs/development/CODEX_HANDOFF.md",
+      "docs/development/HANDOFF_FILES.json",
+      "docs/development/PROJECT_STATUS.json",
+      "docs/development/RELEASE.md",
+      "docs/development/VALIDATION.md",
+      "src/Jellyfin.Plugin.TrailerReel/Services/CatalogStore.cs",
+      "src/Jellyfin.Plugin.TrailerReel/Services/GenreTrailerIntroProvider.cs",
+      "src/Jellyfin.Plugin.TrailerReel/Services/TrailerCatalogRefreshService.cs",
+      "tests/Jellyfin.Plugin.TrailerReel.Compatibility/Jellyfin.Plugin.TrailerReel.Compatibility.csproj",
+      "tests/Jellyfin.Plugin.TrailerReel.Compatibility/Program.cs",
+      "tests/Jellyfin.Plugin.TrailerReel.Tests/Jellyfin.Plugin.TrailerReel.Tests.csproj",
+      "tests/Jellyfin.Plugin.TrailerReel.Tests/PersistenceTests.cs",
+      "tests/Jellyfin.Plugin.TrailerReel.Tests/Program.cs",
+      "tools/build-local.py"
+    ],
+    "expected_local_checks": {
+      "regressions": 107,
+      "offline_format": 22,
+      "binary_compatibility_per_host": 22,
+      "compatibility_versions": [
+        "12.3.0",
+        "12.4.0"
+      ]
+    },
+    "completed_work": [
+      "Reviewed the existing overlay and README addition; preserved local work on a development branch",
+      "Ran the full Windows validation and local packaging",
+      "Integrated the 12.3 compatibility host into hosted CI using the existing production DLL with a byte comparison",
+      "Retained release triggers, asset names and root-level catalog ZIP layout",
+      "Reconciled 12.2-only README and installation wording with isolated 12.3 evidence",
+      "Corrected the missing-SDK diagnostic to reference global.json instead of an absent setup script"
+    ],
+    "remaining_gaps": [
+      "Updated workflow needs a hosted run after branch review and push",
+      "Live Unraid activation, media streaming/decoding and client playback require a separately requested server rollout",
+      "Historical published asset and companion catalog metadata above were retained from the handoff, not reverified during local integration"
+    ]
+  },
+  "next_development_step": {
+    "action": "Review and commit the combined local changes, push the branch for a PR, and verify hosted CI passes 107 regressions, 22 selectors and 22 binary checks for each of 12.3.0 and 12.4.0 (173 total), plus four artifacts.",
+    "publish_or_deploy": false
+  },
+  "initial_handoff_validation": {
+    "date": "2026-10-31",
+    "timezone": "America/New_York",
+    "platform": "Windows",
+    "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\build.ps1",
+    "result": "passed",
+    "sdk": "10.0.401",
+    "production_build_warnings": 0,
+    "production_build_errors": 0,
+    "dotnet_checks": 96,
+    "offline_format_checks": 22,
+    "yt_dlp_version": "2026.08.19",
+    "compatibility_packages": "12.3.0",
+    "binary_contract_checks": 17,
+    "methods_prepared": 813,
+    "symlink_indexing": "passed without skipped assertions",
+    "tested_dll_matches_production": true,
+    "ci_shell_syntax": "Existing build.sh and all four workflow shell blocks passed bash -n",
+    "ci_compatibility_step": "Exact new workflow shell block passed locally in Git Bash with the production DLL; this is not a hosted Ubuntu run",
+    "tested_dll_sha256": "4cae0edd1f2863e0549574de5ee94d65c533a90ad35ed8f5d306a60ef9a08f5c",
+    "packaging": "Three ZIPs plus SHA256SUMS; root-level runtime files, manual wrapper, source exclusions and CRC/checksums verified locally",
+    "details_path": ".codex-local/last-build.json (ignored, includes exact local package hashes)",
+    "environment_issue": "The first sandboxed run failed a temporary-file rename with UnauthorizedAccessException; the unchanged command passed outside the filesystem sandbox. Symlink checks passed.",
+    "live_server_validation_performed": false,
+    "hosted_ci_run_performed": false
+  },
+  "local_validation": {
+    "date": "2026-10-31",
+    "timezone": "America/New_York",
+    "platform": "Windows",
+    "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\build.ps1",
+    "result": "passed",
+    "sdk": "10.0.401",
+    "production_build_warnings": 0,
+    "production_build_errors": 0,
+    "dotnet_checks": 107,
+    "offline_format_checks": 22,
+    "yt_dlp_version": "2026.08.19",
+    "compatibility_packages": "12.4.0 (default), 12.3.0 (separate verified run)",
+    "binary_contract_checks": 22,
+    "methods_prepared": 817,
+    "symlink_indexing": "passed without skipped assertions",
+    "tested_dll_matches_production": true,
+    "ci_shell_syntax": "Existing build.sh and all four workflow shell blocks passed bash -n",
+    "ci_compatibility_step": "Dual-version 12.3.0/12.4.0 shell loop is validated locally in Git Bash; no hosted Ubuntu run.",
+    "tested_dll_sha256": "1d5ed8bdadeb2d881cfd88fff9bde656303902b2e62077dc6ded385ac2b8c7e3",
+    "packaging": "Three ZIPs plus SHA256SUMS; root-level runtime files, manual wrapper, source exclusions and CRC/checksums verified locally",
+    "details_path": ".codex-local/last-build.json (ignored, includes exact local package hashes)",
+    "environment_issue": "The first sandboxed run failed a temporary-file rename with UnauthorizedAccessException; the unchanged command passed outside the filesystem sandbox. Symlink checks passed.",
+    "live_server_validation_performed": false,
+    "hosted_ci_run_performed": false,
+    "regression_proof": "New tests reproduce cleanup/save ordering, empty-on-read-failure and concurrent reservation defects against original source in an isolated ignored copy.",
+    "additional_report_path": ".codex-local/compatibility-matrix.json (ignored; final DLL, both host versions)",
+    "host_naming_checks": "Requested Naming assembly version and source-extra/index-alias classification use the real host resolver."
+  },
+  "maintenance": {
+    "scope": "Jellyfin 12.4 compatibility and source issue review",
+    "runtime_changes": true,
+    "released": false,
+    "baseline_dll_12_4_checks": 17,
+    "baseline_dll_12_4_sha256": "4cae0edd1f2863e0549574de5ee94d65c533a90ad35ed8f5d306a60ef9a08f5c",
+    "fixes": [
+      "Save eligibility/cap cleanup before deleting old managed media",
+      "Preserve corrupt/unreadable catalogs, propagate cancellation and retry after repair; skip prerolls on a catalog read error",
+      "Serialize intro queue creation and watched writes to prevent duplicate reservations on concurrent launches"
+    ],
+    "preserved": [
+      "GUID and RequireExact1080p saved setting",
+      "production 12.2.0 references and ABI 12.2.0.0",
+      "strict anchor/whole-profile genre matching, pools/caps, dates/locale, local exclusions and indexed item IDs",
+      "Full HD/audio checks, alternate uploads and pool budgets",
+      "existing release triggers and asset layouts"
+    ],
+    "release_preparation_required": "Choose a new four-part version and release notes if publication is requested; do not overwrite v0.4.1.1 assets."
+  },
+  "release_preparation": {
+    "version": "0.4.1.2",
+    "status": "prepared for validation and publication",
+    "minimum_abi": "12.2.0.0",
+    "server_deployment": false
+  }
+}

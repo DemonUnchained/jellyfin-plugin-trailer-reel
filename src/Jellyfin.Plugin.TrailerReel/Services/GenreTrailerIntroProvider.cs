@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Plugin.TrailerReel.Models;
 using MediaBrowser.Controller.Entities;
@@ -19,6 +20,7 @@ public sealed class GenreTrailerIntroProvider : IIntroProvider
     private readonly LocalGenreService _localGenreService;
     private readonly IUserDataManager _userDataManager;
     private readonly ILogger<GenreTrailerIntroProvider> _logger;
+    private readonly SemaphoreSlim _selectionGate = new(1, 1);
     private readonly ConcurrentDictionary<(Guid UserId, Guid ItemId), CachedSelection> _selectionCache = new();
 
     public GenreTrailerIntroProvider(
@@ -38,6 +40,21 @@ public sealed class GenreTrailerIntroProvider : IIntroProvider
     public string Name => "Trailer Reel";
 
     public async Task<IEnumerable<IntroInfo>> GetIntros(BaseItem item, User user)
+    {
+        // Watched reads, queue creation and watched writes form one local transaction.
+        // Serialize launches so concurrent requests cannot reserve the same unwatched stock.
+        await _selectionGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            return await GetIntrosCoreAsync(item, user).ConfigureAwait(false);
+        }
+        finally
+        {
+            _selectionGate.Release();
+        }
+    }
+
+    private async Task<IEnumerable<IntroInfo>> GetIntrosCoreAsync(BaseItem item, User user)
     {
         var config = Plugin.Instance?.Configuration;
         if (config is null
@@ -69,7 +86,17 @@ public sealed class GenreTrailerIntroProvider : IIntroProvider
         }
 
         var folder = Path.GetFullPath(config.TrailerFolderPath.Trim());
-        var catalog = await _catalogStore.LoadAsync(folder, CancellationToken.None).ConfigureAwait(false);
+        TrailerCatalog catalog;
+        try
+        {
+            catalog = await _catalogStore.LoadAsync(folder, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            _logger.LogWarning(ex, "Trailer Reel skipped prerolls because its catalog could not be read; the existing catalog has been preserved");
+            return [];
+        }
+
         var animeFeature = _localGenreService.IsInLibrary(item, config.AnimeMovieLibraryName);
         if (animeFeature && !config.EnableAnimeMovieTrailers)
         {

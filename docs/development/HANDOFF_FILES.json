@@ -1,0 +1,14 @@
+{
+  "overlay_files": [
+    "AGENTS.md",
+    "build.ps1",
+    "docs/development/CODEX_HANDOFF.md",
+    "docs/development/HANDOFF_FILES.json",
+    "docs/development/PROJECT_STATUS.json",
+    "docs/development/RELEASE.md",
+    "docs/development/VALIDATION.md",
+    "tests/Jellyfin.Plugin.TrailerReel.Compatibility/Jellyfin.Plugin.TrailerReel.Compatibility.csproj",
+    "tests/Jellyfin.Plugin.TrailerReel.Compatibility/Program.cs",
+    "tools/build-local.py"
+  ]
+}
